@@ -1,0 +1,435 @@
+/**
+ * RecipeService - Recipe management with junction tables
+ *
+ * Handles recipe CRUD including category associations and accompanying recipes.
+ * Public read via RLS, writes via service role (admin client).
+ *
+ * Usage:
+ *   import { RecipeService } from '@/lib/supabase/services';
+ *
+ *   const list = await RecipeService.getAll(supabase);
+ *   const recipe = await RecipeService.getByUid(supabase, 'chicken-tikka');
+ *   await RecipeService.createRecipe(adminClient, formData);
+ */
+
+import { SupabaseClient } from '@supabase/supabase-js';
+import { BaseQueryService } from '../core/BaseQueryService';
+import type { ServiceResponse } from '@/types';
+import type {
+  Recipe,
+  RecipeSummary,
+  RecipeFormData,
+  Category,
+} from '@/types/recipe';
+
+// Select strings for Supabase queries
+const RECIPE_SUMMARY_SELECT = `
+  id, uid, title, short_description,
+  feature_image_path, feature_image_alt,
+  prep_time, cook_time,
+  recipe_categories(category:categories(id, type, uid, title))
+`;
+
+const RECIPE_FULL_SELECT = `
+  id, uid, title, short_description, full_description,
+  feature_image_path, feature_image_alt,
+  prep_time, cook_time, servings, calories_per_serving,
+  ingredient_groups, method_groups,
+  serving_suggestions, tips,
+  created_at, updated_at,
+  recipe_categories(category:categories(id, type, uid, title)),
+  recipe_accompanying!recipe_accompanying_recipe_id_fkey(accompanying:recipes!recipe_accompanying_accompanying_id_fkey(
+    id, uid, title, short_description, feature_image_path, feature_image_alt
+  ))
+`;
+
+interface RawRecipeRow {
+  id: string;
+  uid: string;
+  title: string;
+  short_description: string;
+  full_description?: string;
+  feature_image_path: string | null;
+  feature_image_alt: string | null;
+  prep_time?: number | null;
+  cook_time?: number | null;
+  servings?: number | null;
+  calories_per_serving?: number | null;
+  ingredient_groups?: Recipe['ingredient_groups'];
+  method_groups?: Recipe['method_groups'];
+  serving_suggestions?: string;
+  tips?: string;
+  created_at?: string;
+  updated_at?: string;
+  recipe_categories: { category: Category }[];
+  recipe_accompanying?: { accompanying: RecipeSummary }[];
+}
+
+/**
+ * Transform raw Supabase join data into flat Recipe/RecipeSummary types
+ */
+function transformCategories(row: RawRecipeRow) {
+  const cats = (row.recipe_categories || []).map((rc) => rc.category);
+  return {
+    course_categories: cats.filter((c) => c.type === 'course'),
+    cuisine_categories: cats.filter((c) => c.type === 'cuisine'),
+    dietary_categories: cats.filter((c) => c.type === 'dietary'),
+  };
+}
+
+function toRecipeSummary(row: RawRecipeRow): RecipeSummary {
+  return {
+    id: row.id,
+    uid: row.uid,
+    title: row.title,
+    short_description: row.short_description,
+    feature_image_path: row.feature_image_path,
+    feature_image_alt: row.feature_image_alt,
+    prep_time: row.prep_time ?? null,
+    cook_time: row.cook_time ?? null,
+    ...transformCategories(row),
+  };
+}
+
+function toRecipe(row: RawRecipeRow): Recipe {
+  return {
+    id: row.id,
+    uid: row.uid,
+    title: row.title,
+    short_description: row.short_description,
+    full_description: row.full_description || '',
+    feature_image_path: row.feature_image_path,
+    feature_image_alt: row.feature_image_alt,
+    prep_time: row.prep_time ?? null,
+    cook_time: row.cook_time ?? null,
+    servings: row.servings ?? null,
+    calories_per_serving: row.calories_per_serving ?? null,
+    ingredient_groups: row.ingredient_groups || [],
+    method_groups: row.method_groups || [],
+    serving_suggestions: row.serving_suggestions || '',
+    tips: row.tips || '',
+    created_at: row.created_at || '',
+    updated_at: row.updated_at || '',
+    ...transformCategories(row),
+    accompanying_recipes: (row.recipe_accompanying || []).map((ra) => ({
+      ...ra.accompanying,
+      // Accompanying recipes fetched here don't have their own categories joined
+      course_categories: [],
+      cuisine_categories: [],
+      dietary_categories: [],
+    })),
+  };
+}
+
+class RecipeServiceClass extends BaseQueryService {
+  constructor() {
+    super('recipes', {
+      searchFields: ['title', 'short_description'],
+      defaultOrderBy: 'created_at',
+      defaultOrderDirection: 'desc',
+      enableCache: true,
+      cacheTTL: 60000, // 1 minute
+      useSoftDelete: false,
+    });
+  }
+
+  /**
+   * Get all recipes as summaries (for listing pages)
+   */
+  async getAll(
+    supabase: SupabaseClient,
+    options: { page?: number; limit?: number; search?: string; categoryId?: string } = {}
+  ): Promise<ServiceResponse<RecipeSummary[]> & { pagination?: Record<string, unknown> }> {
+    try {
+      const page = Math.max(1, options.page || 1);
+      const limit = Math.min(100, Math.max(1, options.limit || 25));
+      const offset = (page - 1) * limit;
+
+      let query = supabase
+        .from('recipes')
+        .select(RECIPE_SUMMARY_SELECT, { count: 'exact' });
+
+      if (options.search) {
+        query = query.or(`title.ilike.%${options.search}%,short_description.ilike.%${options.search}%`);
+      }
+
+      if (options.categoryId) {
+        // Filter by category via junction table
+        const { data: recipeIds } = await supabase
+          .from('recipe_categories')
+          .select('recipe_id')
+          .eq('category_id', options.categoryId);
+
+        if (recipeIds && recipeIds.length > 0) {
+          query = query.in('id', recipeIds.map((r) => r.recipe_id));
+        } else {
+          return { success: true, data: [], pagination: { currentPage: page, pageSize: limit, totalCount: 0, totalPages: 0 } };
+        }
+      }
+
+      query = query
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      const { data, error, count } = await query;
+
+      if (error) throw error;
+
+      const totalCount = count || 0;
+      const totalPages = Math.ceil(totalCount / limit);
+
+      return {
+        success: true,
+        data: ((data || []) as unknown as RawRecipeRow[]).map(toRecipeSummary),
+        pagination: {
+          currentPage: page,
+          pageSize: limit,
+          totalCount,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+      };
+    } catch (error) {
+      console.error('[RecipeService] getAll error:', error);
+      return { success: false, error: 'Failed to load recipes' };
+    }
+  }
+
+  /**
+   * Get a single recipe by UID (for public pages)
+   */
+  async getByUid(
+    supabase: SupabaseClient,
+    uid: string
+  ): Promise<ServiceResponse<Recipe>> {
+    try {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select(RECIPE_FULL_SELECT)
+        .eq('uid', uid)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return { success: false, error: 'Recipe not found' };
+        }
+        throw error;
+      }
+
+      return { success: true, data: toRecipe(data as unknown as RawRecipeRow) };
+    } catch (error) {
+      console.error('[RecipeService] getByUid error:', error);
+      return { success: false, error: 'Failed to load recipe' };
+    }
+  }
+
+  /**
+   * Get a single recipe by ID (for admin edit)
+   */
+  async getById(
+    supabase: SupabaseClient,
+    id: string
+  ): Promise<ServiceResponse<Recipe>> {
+    try {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select(RECIPE_FULL_SELECT)
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return { success: false, error: 'Recipe not found' };
+        }
+        throw error;
+      }
+
+      return { success: true, data: toRecipe(data as unknown as RawRecipeRow) };
+    } catch (error) {
+      console.error('[RecipeService] getById error:', error);
+      return { success: false, error: 'Failed to load recipe' };
+    }
+  }
+
+  /**
+   * Create a new recipe with category and accompanying associations (use admin client)
+   */
+  async createRecipe(
+    supabase: SupabaseClient,
+    formData: RecipeFormData
+  ): Promise<ServiceResponse<Recipe>> {
+    try {
+      const {
+        course_category_ids,
+        cuisine_category_ids,
+        dietary_category_ids,
+        accompanying_recipe_ids,
+        ...recipeData
+      } = formData;
+
+      // Insert recipe
+      const { data: recipe, error } = await supabase
+        .from('recipes')
+        .insert(recipeData)
+        .select('id')
+        .single();
+
+      if (error) {
+        if (error.code === '23505') {
+          return { success: false, error: 'A recipe with this UID already exists' };
+        }
+        throw error;
+      }
+
+      const recipeId = recipe.id;
+
+      // Insert junction rows
+      await this._syncJunctions(supabase, recipeId, {
+        course_category_ids,
+        cuisine_category_ids,
+        dietary_category_ids,
+        accompanying_recipe_ids,
+      });
+
+      this.invalidateCache();
+
+      // Return full recipe
+      return this.getById(supabase, recipeId);
+    } catch (error) {
+      console.error('[RecipeService] createRecipe error:', error);
+      return { success: false, error: 'Failed to create recipe' };
+    }
+  }
+
+  /**
+   * Update an existing recipe (use admin client)
+   */
+  async updateRecipe(
+    supabase: SupabaseClient,
+    id: string,
+    formData: RecipeFormData
+  ): Promise<ServiceResponse<Recipe>> {
+    try {
+      const {
+        course_category_ids,
+        cuisine_category_ids,
+        dietary_category_ids,
+        accompanying_recipe_ids,
+        ...recipeData
+      } = formData;
+
+      // Update recipe row
+      const { error } = await supabase
+        .from('recipes')
+        .update(recipeData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Replace junction rows
+      await this._syncJunctions(supabase, id, {
+        course_category_ids,
+        cuisine_category_ids,
+        dietary_category_ids,
+        accompanying_recipe_ids,
+      });
+
+      this.invalidateCache();
+
+      return this.getById(supabase, id);
+    } catch (error) {
+      console.error('[RecipeService] updateRecipe error:', error);
+      return { success: false, error: 'Failed to update recipe' };
+    }
+  }
+
+  /**
+   * Delete a recipe (use admin client). CASCADE handles junction cleanup.
+   */
+  async deleteRecipe(
+    supabase: SupabaseClient,
+    id: string
+  ): Promise<ServiceResponse<null>> {
+    try {
+      const { error } = await supabase
+        .from('recipes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      this.invalidateCache();
+      return { success: true, data: null };
+    } catch (error) {
+      console.error('[RecipeService] deleteRecipe error:', error);
+      return { success: false, error: 'Failed to delete recipe' };
+    }
+  }
+
+  /**
+   * Get all recipe UIDs (for static generation / sitemap)
+   */
+  async getAllUids(
+    supabase: SupabaseClient
+  ): Promise<ServiceResponse<{ uid: string }[]>> {
+    try {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('uid')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return { success: true, data: data as { uid: string }[] };
+    } catch (error) {
+      console.error('[RecipeService] getAllUids error:', error);
+      return { success: false, error: 'Failed to load recipe UIDs' };
+    }
+  }
+
+  /**
+   * Delete/reinsert junction rows for categories and accompanying recipes.
+   * This "replace all" strategy is simpler and atomic for small sets.
+   */
+  private async _syncJunctions(
+    supabase: SupabaseClient,
+    recipeId: string,
+    ids: {
+      course_category_ids: string[];
+      cuisine_category_ids: string[];
+      dietary_category_ids: string[];
+      accompanying_recipe_ids: string[];
+    }
+  ): Promise<void> {
+    // Categories — delete all then reinsert
+    await supabase.from('recipe_categories').delete().eq('recipe_id', recipeId);
+
+    const allCategoryIds = [
+      ...ids.course_category_ids,
+      ...ids.cuisine_category_ids,
+      ...ids.dietary_category_ids,
+    ];
+
+    if (allCategoryIds.length > 0) {
+      await supabase.from('recipe_categories').insert(
+        allCategoryIds.map((categoryId) => ({ recipe_id: recipeId, category_id: categoryId }))
+      );
+    }
+
+    // Accompanying recipes — delete all then reinsert
+    await supabase.from('recipe_accompanying').delete().eq('recipe_id', recipeId);
+
+    if (ids.accompanying_recipe_ids.length > 0) {
+      await supabase.from('recipe_accompanying').insert(
+        ids.accompanying_recipe_ids.map((accompanyingId) => ({
+          recipe_id: recipeId,
+          accompanying_id: accompanyingId,
+        }))
+      );
+    }
+  }
+}
+
+export const RecipeService = new RecipeServiceClass();
+export default RecipeService;

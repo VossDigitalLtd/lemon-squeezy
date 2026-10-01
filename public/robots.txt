@@ -1,0 +1,10 @@
+User-agent: *
+# Block all protected and API routes
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+
+# Allow public pages
+Allow: /$
+Allow: /login
+Allow: /signup

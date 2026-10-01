@@ -1,0 +1,43 @@
+import { ReactElement } from 'react';
+import {
+  LayoutDashboard,
+  Users,
+  Settings,
+  UtensilsCrossed,
+  Tags,
+} from 'lucide-react';
+import { features } from './app';
+
+export interface NavLink {
+  href: string;
+  icon: ReactElement;
+  label: string;
+  exact?: boolean;
+  minRole?: 'admin' | 'super_admin';
+}
+
+export const MAIN_NAV_LINKS: NavLink[] = [
+  { href: '/admin', icon: <LayoutDashboard size={18} />, label: 'Dashboard', exact: true },
+  { href: '/admin/recipes', icon: <UtensilsCrossed size={18} />, label: 'Recipes' },
+  { href: '/admin/categories', icon: <Tags size={18} />, label: 'Categories' },
+  { href: '/admin/users', icon: <Users size={18} />, label: 'Users', minRole: 'admin' },
+];
+
+export interface AccountNavLink {
+  href: string;
+  label: string;
+}
+
+export const ACCOUNT_NAV_LINKS: AccountNavLink[] = [];
+
+export const FRONTEND_NAV_LINKS: AccountNavLink[] = [
+  { href: '/recipes', label: 'Recipes' },
+  { href: '/what-we-having', label: 'What We Having?' },
+];
+
+export const BOTTOM_NAV_LINKS: NavLink[] = [
+  { href: '/admin/settings', icon: <Settings size={18} />, label: 'Settings' },
+  ...(features.developer
+    ? []
+    : []),
+];
