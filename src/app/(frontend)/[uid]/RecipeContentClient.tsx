@@ -1,130 +1,206 @@
 'use client';
 
 import { useState } from 'react';
-import { Minus, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { UNITS, scaleIngredient, formatIngredient, convertUnit, getEquivalentUnit } from '@/lib/units';
+import { Minus, Plus, Check } from 'lucide-react';
+import { displayIngredient, formatAmount } from '@/lib/units';
+import { splitStepDurations } from '@/lib/time';
+import { StepTimer } from '@/components/recipe/StepTimer';
+import { cn } from '@/utils/cn';
 import type { Recipe } from '@/types/recipe';
 
 interface RecipeContentClientProps {
   recipe: Recipe;
+  /** Rendered under the method (tips, serving suggestions) */
+  children?: React.ReactNode;
 }
 
-export default function RecipeContentClient({ recipe }: RecipeContentClientProps) {
+export default function RecipeContentClient({ recipe, children }: RecipeContentClientProps) {
   const baseServings = recipe.servings || 1;
   const [servings, setServings] = useState(baseServings);
-  const [useImperial, setUseImperial] = useState(false);
+  const [system, setSystem] = useState<'metric' | 'imperial'>('metric');
+  const [ticked, setTicked] = useState<Set<string>>(() => new Set());
+  const [doneSteps, setDoneSteps] = useState<Set<string>>(() => new Set());
 
-  function adjustServings(delta: number) {
-    setServings((s) => Math.max(1, s + delta));
+  function toggle(set: Set<string>, key: string) {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
   }
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-      {/* Ingredients — 2 cols */}
-      <div className="md:col-span-2">
-        <div className="sticky top-20">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-foreground">Ingredients</h2>
-          </div>
+  // Number steps continuously across method groups
+  const stepOffsets = recipe.method_groups.map((_, gi) =>
+    recipe.method_groups.slice(0, gi).reduce((sum, g) => sum + g.items.length, 0)
+  );
 
-          {/* Serving scaler */}
+  return (
+    <div id="recipe" className="grid scroll-mt-24 grid-cols-1 items-start gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-16">
+      {/* ── Ingredients ── */}
+      <aside
+        aria-labelledby="ingredients-title"
+        className="rounded-2xl bg-brand-muted p-6 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-auto"
+      >
+        <h2 id="ingredients-title" className="font-display text-[2rem] leading-tight">
+          Ingredients
+        </h2>
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           {recipe.servings != null && (
-            <div className="flex items-center gap-3 mb-4 bg-muted/50 rounded-lg px-3 py-2">
-              <span className="text-sm text-muted-foreground">Servings</span>
-              <div className="flex items-center gap-1 ml-auto">
-                <Button variant="outline" size="sm" onClick={() => adjustServings(-1)} disabled={servings <= 1}>
-                  <Minus size={12} />
-                </Button>
-                <span className="text-sm font-medium w-8 text-center">{servings}</span>
-                <Button variant="outline" size="sm" onClick={() => adjustServings(1)}>
-                  <Plus size={12} />
-                </Button>
-              </div>
+            <div className="inline-flex items-center gap-1 rounded-full bg-card p-1 shadow-card" role="group" aria-label="Servings">
+              <button
+                type="button"
+                onClick={() => setServings((s) => Math.max(1, s - 1))}
+                disabled={servings <= 1}
+                className="grid size-9 place-items-center rounded-full hover:bg-muted disabled:opacity-35 disabled:hover:bg-transparent"
+                aria-label="Fewer servings"
+              >
+                <Minus size={16} />
+              </button>
+              <output className="min-w-[5.5rem] text-center text-[0.9375rem] tabular-nums" aria-live="polite">
+                {servings} serving{servings === 1 ? '' : 's'}
+              </output>
+              <button
+                type="button"
+                onClick={() => setServings((s) => Math.min(48, s + 1))}
+                className="grid size-9 place-items-center rounded-full hover:bg-muted"
+                aria-label="More servings"
+              >
+                <Plus size={16} />
+              </button>
             </div>
           )}
 
-          {/* Unit toggle */}
-          <div className="flex items-center gap-2 mb-4">
-            <button
-              onClick={() => setUseImperial(false)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                !useImperial ? 'bg-primary text-primary-foreground border-primary' : 'text-muted-foreground border-border'
-              }`}
-            >
-              Metric
-            </button>
-            <button
-              onClick={() => setUseImperial(true)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                useImperial ? 'bg-primary text-primary-foreground border-primary' : 'text-muted-foreground border-border'
-              }`}
-            >
-              Imperial
-            </button>
+          <div className="inline-flex gap-0.5 rounded-full bg-card p-1 shadow-card" role="group" aria-label="Units">
+            {(['metric', 'imperial'] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSystem(s)}
+                aria-pressed={system === s}
+                className={cn(
+                  'rounded-full px-3.5 py-1.5 text-sm capitalize transition-colors',
+                  system === s ? 'bg-primary font-medium text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {s}
+              </button>
+            ))}
           </div>
-
-          {/* Ingredient list */}
-          {recipe.ingredient_groups.map((group, gi) => (
-            <div key={gi} className="mb-4">
-              {group.group_title && (
-                <h3 className="text-sm font-semibold text-foreground mb-2">{group.group_title}</h3>
-              )}
-              <ul className="space-y-1.5">
-                {group.items.map((item, ii) => {
-                  let scaled = scaleIngredient(item, baseServings, servings);
-
-                  // Convert unit if toggling systems
-                  if (scaled.unit && scaled.quantity != null) {
-                    const unitDef = UNITS[scaled.unit];
-                    const wantsConvert =
-                      (useImperial && unitDef.system === 'metric') ||
-                      (!useImperial && unitDef.system === 'imperial');
-
-                    if (wantsConvert) {
-                      const equiv = getEquivalentUnit(scaled.unit);
-                      if (equiv) {
-                        const converted = convertUnit(scaled.quantity, scaled.unit, equiv);
-                        scaled = { ...scaled, quantity: converted, unit: equiv };
-                      }
-                    }
-                  }
-
-                  return (
-                    <li key={ii} className="text-sm text-foreground flex items-start gap-2">
-                      <span className="text-primary mt-1.5 flex-shrink-0">•</span>
-                      <span>{formatIngredient(scaled)}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
         </div>
-      </div>
 
-      {/* Method — 3 cols */}
-      <div className="md:col-span-3">
-        <h2 className="text-xl font-semibold text-foreground mb-4">Method</h2>
+        {recipe.ingredient_groups.map((group, gi) => (
+          <div key={gi}>
+            {group.group_title && (
+              <h3 className="mt-6 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {group.group_title}
+              </h3>
+            )}
+            <ul className="mt-3 divide-y divide-lace">
+              {group.items.map((item, ii) => {
+                const key = `${gi}-${ii}`;
+                const shown = displayIngredient(item, baseServings, servings, system);
+                const qty = formatAmount(shown);
+                const isTicked = ticked.has(key);
+
+                return (
+                  <li key={key}>
+                    <label className="flex cursor-pointer items-baseline gap-3.5 py-3">
+                      <input
+                        type="checkbox"
+                        checked={isTicked}
+                        onChange={() => setTicked((t) => toggle(t, key))}
+                        className="peer sr-only"
+                      />
+                      <span
+                        className={cn(
+                          'grid size-[1.15rem] flex-shrink-0 translate-y-[0.2rem] place-items-center rounded-full border-[1.5px] peer-focus-visible:ring-2 peer-focus-visible:ring-ring',
+                          isTicked ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground bg-card'
+                        )}
+                        aria-hidden="true"
+                      >
+                        {isTicked && <Check size={11} strokeWidth={3} />}
+                      </span>
+                      <span className={cn(isTicked && 'text-muted-foreground line-through')}>
+                        {qty && <span className="font-semibold tabular-nums">{qty} </span>}
+                        {shown.name}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+
+        <p className="mt-4 text-[0.8125rem] text-muted-foreground">Tap an ingredient to tick it off.</p>
+      </aside>
+
+      {/* ── Method ── */}
+      <section aria-labelledby="method-title" className="min-w-0">
+        <h2 id="method-title" className="font-display text-[2rem] leading-tight">
+          Method
+        </h2>
 
         {recipe.method_groups.map((group, gi) => (
-          <div key={gi} className="mb-6">
+          <div key={gi}>
             {group.group_title && (
-              <h3 className="text-sm font-semibold text-foreground mb-3">{group.group_title}</h3>
+              <h3 className="mt-8 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {group.group_title}
+              </h3>
             )}
-            <ol className="space-y-4">
-              {group.items.map((step, si) => (
-                <li key={si} className="flex gap-3">
-                  <span className="flex-shrink-0 h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center justify-center mt-0.5">
-                    {si + 1}
-                  </span>
-                  <p className="text-sm text-foreground leading-relaxed">{step}</p>
-                </li>
-              ))}
+            <ol className="mt-5 grid gap-2">
+              {group.items.map((step, si) => {
+                const key = `${gi}-${si}`;
+                const done = doneSteps.has(key);
+                const n = stepOffsets[gi] + si + 1;
+
+                return (
+                  <li
+                    key={key}
+                    onClick={() => setDoneSteps((d) => toggle(d, key))}
+                    className={cn(
+                      '-mx-5 grid cursor-pointer grid-cols-[auto_1fr] gap-5 rounded-2xl p-5 transition-[background-color,opacity] hover:bg-muted/60',
+                      done && 'opacity-45'
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDoneSteps((d) => toggle(d, key));
+                      }}
+                      aria-pressed={done}
+                      aria-label={`Step ${n}: mark as ${done ? 'not done' : 'done'}`}
+                      className={cn(
+                        'grid size-10 place-items-center rounded-full font-semibold',
+                        done ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'
+                      )}
+                    >
+                      {done ? <Check size={18} /> : n}
+                    </button>
+                    <p className="min-w-0 text-lg leading-[1.7]">
+                      <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        Step {n}
+                      </span>
+                      {splitStepDurations(step).map((seg, i) =>
+                        seg.type === 'timer' ? (
+                          <StepTimer key={i} minutes={seg.minutes} label={seg.text} />
+                        ) : (
+                          <span key={i}>{seg.text}</span>
+                        )
+                      )}
+                    </p>
+                  </li>
+                );
+              })}
             </ol>
           </div>
         ))}
-      </div>
+
+        <p className="mt-4 text-sm text-muted-foreground">Tap a step when it&rsquo;s done. Tap a time to start a timer.</p>
+
+        {children}
+      </section>
     </div>
   );
 }

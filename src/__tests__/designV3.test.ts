@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { timerWedgePath, formatMinutesShort, formatMinutesLong } from '@/lib/time';
-import { convertUnit, getEquivalentUnit } from '@/lib/units';
+import { timerWedgePath, formatMinutesShort, formatMinutesLong, splitStepDurations } from '@/lib/time';
+import { convertUnit, getEquivalentUnit, displayIngredient } from '@/lib/units';
 import { splitSubtitle } from '@/lib/recipes';
 
 describe('timerWedgePath', () => {
@@ -60,5 +60,51 @@ describe('splitSubtitle', () => {
   it('leaves titles without a trailing bracket alone', () => {
     expect(splitSubtitle('Tomato Soup')).toBeNull();
     expect(splitSubtitle('Chilli (Mild) Beef Stew')).toBeNull();
+  });
+});
+
+describe('splitStepDurations', () => {
+  it('turns durations into timer segments', () => {
+    const parts = splitStepDurations('Bake for 45 minutes, turning once.');
+    expect(parts).toEqual([
+      { type: 'text', text: 'Bake for ' },
+      { type: 'timer', text: '45 minutes', minutes: 45 },
+      { type: 'text', text: ', turning once.' },
+    ]);
+  });
+
+  it('uses the longer end of a range and converts hours', () => {
+    expect(splitStepDurations('Simmer 20-25 mins')[1]).toMatchObject({ minutes: 25 });
+    expect(splitStepDurations('Slow cook for 1.5 hours')[1]).toMatchObject({ minutes: 90 });
+  });
+
+  it('leaves steps without durations as one text segment', () => {
+    expect(splitStepDurations('Preheat the oven to 200°C')).toEqual([
+      { type: 'text', text: 'Preheat the oven to 200°C' },
+    ]);
+  });
+});
+
+describe('displayIngredient', () => {
+  const potatoes = { quantity: 1000, unit: 'g' as const, name: 'potatoes' };
+
+  it('steps grams up to kilograms', () => {
+    expect(displayIngredient(potatoes, 4, 6, 'metric')).toMatchObject({ quantity: 1.5, unit: 'kg' });
+  });
+
+  it('converts to tidy imperial amounts', () => {
+    expect(displayIngredient(potatoes, 4, 4, 'imperial')).toMatchObject({ quantity: 2.25, unit: 'lb' });
+    expect(displayIngredient({ quantity: 150, unit: 'ml', name: 'olive oil' }, 4, 4, 'imperial'))
+      .toMatchObject({ quantity: 5, unit: 'floz' });
+  });
+
+  it('keeps spoons as spoons and scales them to quarters', () => {
+    expect(displayIngredient({ quantity: 3, unit: 'tsp', name: 'garlic' }, 4, 5, 'metric'))
+      .toMatchObject({ quantity: 3.75, unit: 'tsp' });
+  });
+
+  it('leaves items without a quantity alone', () => {
+    const salt = { quantity: null, unit: null, name: 'Salt and pepper' };
+    expect(displayIngredient(salt, 4, 8, 'imperial')).toEqual(salt);
   });
 });

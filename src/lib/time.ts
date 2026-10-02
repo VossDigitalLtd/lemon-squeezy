@@ -37,3 +37,37 @@ export function formatMinutesLong(minutes: number): string {
   const m = minutes % 60;
   return m ? `${plural(h, 'hour')} ${plural(m, 'minute')}` : plural(h, 'hour');
 }
+
+// ─── Durations inside method text ───────────────────────────────────────────
+
+export type StepSegment =
+  | { type: 'text'; text: string }
+  | { type: 'timer'; text: string; minutes: number };
+
+const DURATION_RE =
+  /(\d+(?:\.\d+)?)(?:\s*(?:-|–|to)\s*(\d+(?:\.\d+)?))?\s*(hours?|hrs?|minutes?|mins?)\b/gi;
+
+/**
+ * Split a method step into plain text and durations that can become timers.
+ * "bake for 45 minutes, turning" → text, timer(45), text.
+ * Ranges use the longer time ("20-25 minutes" → 25). Hours become minutes.
+ */
+export function splitStepDurations(step: string): StepSegment[] {
+  const segments: StepSegment[] = [];
+  let last = 0;
+
+  for (const match of step.matchAll(DURATION_RE)) {
+    const [text, from, to, unit] = match;
+    const value = parseFloat(to ?? from);
+    const minutes = Math.round(/^h/i.test(unit) ? value * 60 : value);
+    if (minutes <= 0) continue;
+
+    const start = match.index ?? 0;
+    if (start > last) segments.push({ type: 'text', text: step.slice(last, start) });
+    segments.push({ type: 'timer', text, minutes });
+    last = start + text.length;
+  }
+
+  if (last < step.length) segments.push({ type: 'text', text: step.slice(last) });
+  return segments;
+}

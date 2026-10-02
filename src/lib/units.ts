@@ -106,8 +106,80 @@ export function getEquivalentUnit(unit: UnitKey): UnitKey | null {
   return EQUIVALENTS[unit] ?? null;
 }
 
+/**
+ * Scale, convert and tidy an ingredient for display.
+ * - scales from baseServings to targetServings
+ * - converts to the requested system where a sensible equivalent exists
+ *   (spoons and universal units never convert)
+ * - steps up to a bigger unit when it reads better (1500 g → 1.5 kg, 20 oz → 1¼ lb)
+ * - rounds to amounts a cook would measure (nearest 5 g, nearest ¼ oz, …)
+ */
+export function displayIngredient(
+  ingredient: Ingredient,
+  baseServings: number,
+  targetServings: number,
+  system: 'metric' | 'imperial'
+): Ingredient {
+  let item = scaleIngredient(ingredient, baseServings, targetServings);
+  if (item.quantity == null || !item.unit) return item;
+
+  const def = UNITS[item.unit];
+  if (def.system !== 'universal' && def.system !== system) {
+    const equiv = getEquivalentUnit(item.unit);
+    if (equiv) {
+      item = { ...item, quantity: convertUnit(item.quantity, item.unit, equiv), unit: equiv };
+    }
+  }
+
+  const stepUp: Partial<Record<UnitKey, [UnitKey, number]>> = {
+    g: ['kg', 1000],
+    ml: ['l', 1000],
+    oz: ['lb', 16],
+  };
+  const up = stepUp[item.unit!];
+  if (up && item.quantity! >= up[1]) {
+    item = { ...item, quantity: item.quantity! / up[1], unit: up[0] };
+  }
+
+  return { ...item, quantity: tidyQuantity(item.quantity!, item.unit!) };
+}
+
+/** Round a quantity to a step that suits its unit. */
+export function tidyQuantity(quantity: number, unit: UnitKey): number {
+  const roundTo = (step: number) => Math.max(step, Math.round(quantity / step) * step);
+  switch (unit) {
+    case 'g':
+    case 'ml':
+      return quantity >= 20 ? roundTo(5) : roundTo(1);
+    case 'kg':
+    case 'l':
+      return Math.round(roundTo(0.05) * 100) / 100;
+    case 'cm':
+      return roundTo(0.5);
+    default:
+      // Imperial, spoons and counts: halves, thirds and quarters only
+      return nearestFraction(quantity);
+  }
+}
+
+/** Nearest whole + ¼ ⅓ ½ ⅔ ¾ (never rounds a positive amount down to 0). */
+function nearestFraction(n: number): number {
+  const steps = [0, 0.25, 0.33, 0.5, 0.67, 0.75, 1];
+  const whole = Math.floor(n);
+  const rest = n - whole;
+  const best = steps.reduce((a, b) => (Math.abs(b - rest) < Math.abs(a - rest) ? b : a));
+  const result = whole + best;
+  return result > 0 ? result : 0.25;
+}
+
 /** Format an ingredient for display: "2 tbsp olive oil" or "Salt to taste" */
 export function formatIngredient(ingredient: Ingredient): string {
+  const amount = formatAmount(ingredient);
+  return amount ? `${amount} ${ingredient.name}` : ingredient.name;
+}
+
+/** Just the quantity and unit: "2 tbsp", "1½ kg", "3" or "" */
+export function formatAmount(ingredient: Ingredient): string {
   const parts: string[] = [];
   if (ingredient.quantity != null) {
     parts.push(formatQuantity(ingredient.quantity));
@@ -120,7 +192,6 @@ export function formatIngredient(ingredient: Ingredient): string {
         : u.label;
     parts.push(label);
   }
-  parts.push(ingredient.name);
   return parts.join(' ');
 }
 

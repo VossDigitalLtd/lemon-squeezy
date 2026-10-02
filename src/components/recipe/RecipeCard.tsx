@@ -36,6 +36,7 @@ export function RecipeCard({
   const imageUrl = getImageUrl(recipe.feature_image_path);
   const course = recipe.course_categories[0]?.title;
   const isLead = variant === 'lead';
+  const hasTime = recipe.total_time != null && recipe.total_time > 0;
 
   return (
     <article className={cn('group relative grid content-start gap-3.5', className)}>
@@ -63,22 +64,26 @@ export function RecipeCard({
 
       {action && <div className="absolute right-3 top-3 z-20">{action}</div>}
 
-      {recipe.total_time != null && recipe.total_time > 0 && (
-        <div className="flex items-center gap-2 text-[0.8125rem] text-muted-foreground tabular-nums">
-          <LogoTimer
-            minutes={recipe.total_time}
-            label={`${formatMinutesShort(recipe.total_time)} total`}
-            className={isLead ? 'size-9' : 'size-7'}
-          />
-          <span>{formatMinutesShort(recipe.total_time)}</span>
-          {course && (
-            <>
-              <span className="size-[3px] rounded-full bg-current" aria-hidden="true" />
-              <span>{course}</span>
-            </>
-          )}
-        </div>
-      )}
+      {/* Always rendered so titles line up across a row, even without times */}
+      <div
+        className={cn(
+          'flex items-center gap-2 text-[0.8125rem] text-muted-foreground tabular-nums',
+          isLead ? 'min-h-9' : 'min-h-7'
+        )}
+      >
+        {hasTime && (
+          <>
+            <LogoTimer
+              minutes={recipe.total_time!}
+              label={`${formatMinutesShort(recipe.total_time!)} total`}
+              className={isLead ? 'size-9' : 'size-7'}
+            />
+            <span>{formatMinutesShort(recipe.total_time!)}</span>
+          </>
+        )}
+        {hasTime && course && <span className="size-[3px] rounded-full bg-current" aria-hidden="true" />}
+        {course && <span>{course}</span>}
+      </div>
 
       <h3
         className={cn(

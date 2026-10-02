@@ -48,23 +48,24 @@ export function FavouriteButton({
       onClick={handleToggle}
       disabled={isLoading}
       className={cn(
-        'group flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors',
+        'group inline-flex h-11 items-center gap-2 rounded-full border px-5 text-[0.9375rem] font-medium transition-colors',
         isFav
           ? 'bg-red-50 border-red-200 text-red-600 dark:bg-red-950 dark:border-red-800 dark:text-red-400'
-          : 'bg-card border-border text-muted-foreground hover:border-red-300 hover:text-red-500',
+          : 'bg-card border-border text-foreground hover:border-red-300 hover:text-red-500',
         isLoading && 'opacity-60',
         className
       )}
-      aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
+      aria-pressed={isFav}
+      aria-label={isFav ? 'Remove from your recipe box' : 'Save to your recipe box'}
     >
       <Heart
-        size={16}
+        size={17}
         className={cn(
           'transition-all',
           isFav ? 'fill-current' : 'group-hover:scale-110'
         )}
       />
-      <span>{isFav ? 'Favourited' : 'Favourite'}</span>
+      <span>{isFav ? 'Saved' : 'Save'}</span>
     </button>
   );
 }

@@ -1,13 +1,18 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Clock, Flame, Users } from 'lucide-react';
+import { ArrowDown, Flame, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { RecipeService, FavouriteService } from '@/lib/supabase/services';
 import { getImageUrl, textToHtml } from '@/lib/recipes';
 import { formatIngredient } from '@/lib/units';
 import RecipeContentClient from './RecipeContentClient';
 import { FavouriteButton } from '@/components/recipe/FavouriteButton';
+import { CookModeButton } from '@/components/recipe/CookModeButton';
+import { RecipeCard } from '@/components/recipe/RecipeCard';
+import { LogoTimer, LogoRays, LaceBand } from '@/components/brand';
+import { formatMinutesLong } from '@/lib/time';
+import { cn } from '@/utils/cn';
 import type { Metadata } from 'next';
 import type { Recipe } from '@/types/recipe';
 
@@ -28,7 +33,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const imageUrl = getImageUrl(recipe.feature_image_path);
 
   return {
-    title: recipe.title,
+    title: recipe.subtitle ? `${recipe.title} (${recipe.subtitle})` : recipe.title,
     description: recipe.short_description,
     openGraph: {
       title: recipe.title,
@@ -54,6 +59,8 @@ export default async function RecipePage({ params }: PageProps) {
     ...recipe.cuisine_categories,
     ...recipe.dietary_categories,
   ];
+  const course = recipe.course_categories[0];
+  const isCypriot = recipe.cuisine_categories.some((c) => c.uid === 'cypriot');
 
   // Check favourite status for logged-in users
   const { data: { user } } = await supabase.auth.getUser();
@@ -62,141 +69,173 @@ export default async function RecipePage({ params }: PageProps) {
     : false;
 
   return (
-    <article className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-foreground">{recipe.title}</h1>
-        {recipe.short_description && (
-          <p className="text-lg text-muted-foreground mt-3">{recipe.short_description}</p>
-        )}
+    <>
+      <article className="mx-auto max-w-7xl px-4 sm:px-8">
+        {/* Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="flex flex-wrap gap-1.5 pt-6 text-sm text-muted-foreground">
+          <Link href="/" className="hover:text-foreground hover:underline">Home</Link>
+          <span aria-hidden="true">/</span>
+          <Link href="/recipes" className="hover:text-foreground hover:underline">Recipes</Link>
+          {course && (
+            <>
+              <span aria-hidden="true">/</span>
+              <Link href={`/recipes?course=${course.uid}`} className="hover:text-foreground hover:underline">
+                {course.title}
+              </Link>
+            </>
+          )}
+        </nav>
 
-        {/* Categories */}
-        {allCategories.length > 0 && (
-          <div className="flex gap-2 mt-4 flex-wrap">
-            {allCategories.map((cat) => (
-              <span
-                key={cat.id}
-                className="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground"
+        {/* Header */}
+        <header className={cn('grid gap-8 pt-5', imageUrl && 'lg:grid-cols-2 lg:items-center lg:gap-16')}>
+          <div className="min-w-0">
+            <h1 className="font-display text-[clamp(2.5rem,5.5vw,4.5rem)] leading-[1.05] text-balance">
+              {recipe.title}
+            </h1>
+            {recipe.subtitle && (
+              <p className="mt-2.5 font-display text-[1.375rem] italic text-muted-foreground">{recipe.subtitle}</p>
+            )}
+            {recipe.short_description && (
+              <p className="mt-5 max-w-[34rem] text-lg">{recipe.short_description}</p>
+            )}
+
+            {allCategories.length > 0 && (
+              <div className="mt-5 flex flex-wrap gap-1.5">
+                {allCategories.map((cat) => (
+                  <Link
+                    key={cat.id}
+                    href={`/recipes?${cat.type}=${cat.uid}`}
+                    className={cn(
+                      'rounded-full border px-3 py-0.5 text-[0.8125rem] transition-colors hover:border-foreground',
+                      cat.uid === 'cypriot' ? 'border-lace bg-brand-muted' : 'border-border'
+                    )}
+                  >
+                    {cat.uid === 'cypriot' ? 'From a Cypriot kitchen' : cat.title}
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {/* Facts */}
+            <div className="mt-8 flex flex-wrap gap-x-9 gap-y-5 border-y border-border py-6">
+              {recipe.prep_time != null && (
+                <Fact icon={<LogoTimer minutes={recipe.prep_time} label="" className="size-15" />} label="Prep time">
+                  {formatMinutesLong(recipe.prep_time)}
+                </Fact>
+              )}
+              {recipe.cook_time != null && recipe.cook_time > 0 && (
+                <Fact icon={<LogoTimer minutes={recipe.cook_time} label="" className="size-15" />} label="Cook time">
+                  {formatMinutesLong(recipe.cook_time)}
+                </Fact>
+              )}
+              {recipe.servings != null && (
+                <Fact icon={<Users size={30} strokeWidth={1.6} />} label="Serves">
+                  {recipe.servings}
+                </Fact>
+              )}
+              {recipe.calories_per_serving != null && (
+                <Fact icon={<Flame size={30} strokeWidth={1.6} />} label="Calories">
+                  {recipe.calories_per_serving} per serving
+                </Fact>
+              )}
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-2.5">
+              <a
+                href="#recipe"
+                className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-[0.9375rem] font-medium text-primary-foreground transition hover:brightness-95"
               >
-                {cat.title}
-              </span>
-            ))}
+                <ArrowDown size={17} />
+                Jump to recipe
+              </a>
+              <FavouriteButton recipeId={recipe.id} initialFavourited={isFavourited} isLoggedIn={!!user} />
+              <CookModeButton />
+            </div>
           </div>
+
+          {imageUrl && (
+            <div className="relative order-first aspect-[16/10] overflow-hidden rounded-2xl bg-muted lg:order-none lg:aspect-[4/5]">
+              <Image
+                src={imageUrl}
+                alt={recipe.feature_image_alt || recipe.title}
+                fill
+                className="object-cover"
+                sizes="(min-width: 1024px) 50vw, 100vw"
+                priority
+              />
+            </div>
+          )}
+        </header>
+
+        {/* Full description */}
+        {recipe.full_description && (
+          <div
+            className="mt-12 max-w-2xl space-y-4 text-lg leading-relaxed text-muted-foreground"
+            dangerouslySetInnerHTML={{ __html: textToHtml(recipe.full_description) }}
+          />
         )}
 
-        {/* Meta bar */}
-        <div className="flex items-center gap-6 mt-6 text-sm text-muted-foreground flex-wrap">
-          {recipe.prep_time != null && (
-            <div className="flex items-center gap-1.5">
-              <Clock size={16} />
-              <span>Prep: {recipe.prep_time} min</span>
-            </div>
-          )}
-          {recipe.cook_time != null && (
-            <div className="flex items-center gap-1.5">
-              <Clock size={16} />
-              <span>Cook: {recipe.cook_time} min</span>
-            </div>
-          )}
-          {recipe.servings != null && (
-            <div className="flex items-center gap-1.5">
-              <Users size={16} />
-              <span>Serves {recipe.servings}</span>
-            </div>
-          )}
-          {recipe.calories_per_serving != null && (
-            <div className="flex items-center gap-1.5">
-              <Flame size={16} />
-              <span>{recipe.calories_per_serving} cal</span>
-            </div>
-          )}
-          <FavouriteButton
-            recipeId={recipe.id}
-            initialFavourited={isFavourited}
-            isLoggedIn={!!user}
-          />
+        {/* Ingredients + method, with tips and serving suggestions under the method */}
+        <div className="pt-16">
+          <RecipeContentClient recipe={recipe}>
+            {recipe.serving_suggestions && (
+              <Note title="Serving suggestions" html={textToHtml(recipe.serving_suggestions)} />
+            )}
+            {recipe.tips && <Note title="Tips" html={textToHtml(recipe.tips)} />}
+          </RecipeContentClient>
         </div>
-      </div>
+      </article>
 
-      {/* Feature image */}
-      {imageUrl && (
-        <div className="aspect-[16/9] relative rounded-xl overflow-hidden mb-8">
-          <Image
-            src={imageUrl}
-            alt={recipe.feature_image_alt || recipe.title}
-            fill
-            className="object-cover"
-            sizes="(max-width: 896px) 100vw, 896px"
-            priority
-          />
-        </div>
-      )}
-
-      {/* Full description */}
-      {recipe.full_description && (
-        <div
-          className="prose prose-sm max-w-none mb-8 text-muted-foreground"
-          dangerouslySetInnerHTML={{ __html: textToHtml(recipe.full_description) }}
-        />
-      )}
-
-      {/* Interactive content — ingredients with scaling + method */}
-      <RecipeContentClient recipe={recipe} />
-
-      {/* Serving suggestions */}
-      {recipe.serving_suggestions && (
-        <section className="mt-8">
-          <h2 className="text-xl font-semibold text-foreground mb-3">Serving Suggestions</h2>
-          <div
-            className="prose prose-sm max-w-none text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: textToHtml(recipe.serving_suggestions) }}
-          />
-        </section>
-      )}
-
-      {/* Tips */}
-      {recipe.tips && (
-        <section className="mt-8">
-          <h2 className="text-xl font-semibold text-foreground mb-3">Tips</h2>
-          <div
-            className="prose prose-sm max-w-none text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: textToHtml(recipe.tips) }}
-          />
-        </section>
-      )}
-
-      {/* Accompanying recipes */}
+      {/* Goes well with */}
       {recipe.accompanying_recipes.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-xl font-semibold text-foreground mb-4">Goes Well With</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {recipe.accompanying_recipes.map((r) => {
-              const img = getImageUrl(r.feature_image_path);
-              return (
-                <Link
-                  key={r.id}
-                  href={`/${r.uid}`}
-                  className="flex items-center gap-4 bg-card rounded-xl border border-border p-4 hover:border-primary/20 transition-colors"
-                >
-                  {img && (
-                    <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0 relative">
-                      <Image src={img} alt={r.title} fill className="object-cover" sizes="64px" />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground truncate">{r.title}</p>
-                    <p className="text-sm text-muted-foreground truncate">{r.short_description}</p>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
+        <>
+          <LaceBand className="mt-20" />
+          <section aria-labelledby="pairs-title" className="mx-auto max-w-7xl px-4 pt-12 sm:px-8">
+            <h2 id="pairs-title" className="font-display text-[clamp(1.875rem,3.4vw,2.5rem)] leading-tight">
+              Goes well with
+            </h2>
+            <p className="mt-1.5 text-muted-foreground">Make it a meal.</p>
+            <div className="mt-7 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+              {recipe.accompanying_recipes.map((r) => (
+                <RecipeCard key={r.id} recipe={r} sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" />
+              ))}
+            </div>
+          </section>
+        </>
       )}
+
+      {isCypriot && !recipe.accompanying_recipes.length && <LaceBand className="mt-20" />}
 
       {/* JSON-LD */}
       <RecipeJsonLd recipe={recipe} imageUrl={imageUrl} />
-    </article>
+    </>
+  );
+}
+
+function Fact({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="grid size-15 place-items-center">{icon}</span>
+      <div>
+        <p className="font-display text-[1.1875rem] leading-tight">{label}</p>
+        <p className="tabular-nums">{children}</p>
+      </div>
+    </div>
+  );
+}
+
+function Note({ title, html }: { title: string; html: string }) {
+  return (
+    <aside className="mt-10 grid grid-cols-[auto_1fr] gap-5 rounded-2xl border border-border p-6">
+      <svg viewBox="0 0 180 180" className="size-12 text-primary-foreground" aria-hidden="true">
+        <circle cx="90" cy="90" r="90" className="fill-primary" />
+        <LogoRays />
+      </svg>
+      <div className="min-w-0">
+        <h2 className="font-display text-2xl leading-tight">{title}</h2>
+        <div className="mt-2 space-y-3 text-[1.0625rem]" dangerouslySetInnerHTML={{ __html: html }} />
+      </div>
+    </aside>
   );
 }
 
@@ -205,13 +244,12 @@ function RecipeJsonLd({ recipe, imageUrl }: { recipe: Recipe; imageUrl: string |
     '@context': 'https://schema.org',
     '@type': 'Recipe',
     name: recipe.title,
+    ...(recipe.subtitle ? { alternateName: recipe.subtitle } : {}),
     description: recipe.short_description,
     ...(imageUrl ? { image: imageUrl } : {}),
     ...(recipe.prep_time ? { prepTime: `PT${recipe.prep_time}M` } : {}),
     ...(recipe.cook_time ? { cookTime: `PT${recipe.cook_time}M` } : {}),
-    ...(recipe.prep_time && recipe.cook_time
-      ? { totalTime: `PT${recipe.prep_time + recipe.cook_time}M` }
-      : {}),
+    ...(recipe.total_time ? { totalTime: `PT${recipe.total_time}M` } : {}),
     ...(recipe.servings ? { recipeYield: `${recipe.servings} servings` } : {}),
     ...(recipe.calories_per_serving
       ? { nutrition: { '@type': 'NutritionInformation', calories: `${recipe.calories_per_serving} calories` } }
