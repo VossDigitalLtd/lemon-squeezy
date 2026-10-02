@@ -50,6 +50,13 @@ export function ShuffleBand({ recipes, className, headingLevel = 'h2' }: Shuffle
             <Shuffle size={17} />
             {picked ? 'Pick Another' : 'Pick a Recipe'}
           </button>
+          {headingLevel === 'h2' && (
+            <p className="mt-4 text-[0.9375rem]">
+              <Link href="/what-we-having?mode=meal" className="border-b-2 border-primary-foreground font-medium">
+                Plan a whole meal, or set time and diet options
+              </Link>
+            </p>
+          )}
         </div>
 
         <div aria-live="polite">

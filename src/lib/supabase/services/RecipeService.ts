@@ -459,6 +459,22 @@ class RecipeServiceClass extends BaseQueryService {
   }
 
   /**
+   * Every "goes well with" link, for pairing dishes into a meal
+   */
+  async getPairingRows(
+    supabase: SupabaseClient
+  ): Promise<ServiceResponse<{ recipe_id: string; accompanying_id: string }[]>> {
+    try {
+      const { data, error } = await supabase.from('recipe_accompanying').select('recipe_id, accompanying_id');
+      if (error) throw error;
+      return { success: true, data: data || [] };
+    } catch (error) {
+      console.error('[RecipeService] getPairingRows error:', error);
+      return { success: false, error: 'Failed to load pairings' };
+    }
+  }
+
+  /**
    * Get all recipe UIDs (for static generation / sitemap)
    */
   async getAllUids(

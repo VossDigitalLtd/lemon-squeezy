@@ -1,26 +1,39 @@
 import { createClient } from '@/lib/supabase/server';
-import { RecipeService } from '@/lib/supabase/services';
-import { ShuffleBand } from '@/components/home/ShuffleBand';
+import { RecipeService, CategoryService, FavouriteService } from '@/lib/supabase/services';
+import { parseWhatWeHaving } from '@/lib/whatWeHavingUrl';
+import WhatWeHavingClient from './WhatWeHavingClient';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'What We Having?',
-  description: "Can't decide what to cook? Let us pick for you!",
+  description: "Can't decide what to cook? Let us pick a dish, or a whole meal, for you.",
 };
 
-export default async function WhatWeHavingPage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function WhatWeHavingPage({ searchParams }: PageProps) {
   const supabase = await createClient();
-  const result = await RecipeService.getAll(supabase, { limit: 100 });
-  const recipes = result.success ? result.data! : [];
+  const [recipesResult, categoriesResult, pairingsResult, userResult, params] = await Promise.all([
+    RecipeService.getAll(supabase, { limit: 100 }),
+    CategoryService.getAllGrouped(supabase),
+    RecipeService.getPairingRows(supabase),
+    supabase.auth.getUser(),
+    searchParams,
+  ]);
 
-  if (recipes.length === 0) {
-    return (
-      <p className="mx-auto max-w-2xl px-4 py-20 text-center text-muted-foreground">
-        No recipes yet. Add some in the admin first.
-      </p>
-    );
-  }
+  const user = userResult.data?.user;
+  const favResult = user ? await FavouriteService.getUserFavouriteIds(supabase, user.id) : null;
 
-  // The band stretches to fill the page between header and footer
-  return <ShuffleBand recipes={recipes} headingLevel="h1" className="flex flex-1 items-center [&>div]:w-full" />;
+  return (
+    <WhatWeHavingClient
+      recipes={recipesResult.success ? recipesResult.data! : []}
+      categories={categoriesResult.success ? categoriesResult.data! : { courses: [], cuisines: [], dietaries: [] }}
+      pairingRows={pairingsResult.success ? pairingsResult.data! : []}
+      favouriteIds={favResult?.success ? favResult.data! : []}
+      isLoggedIn={!!user}
+      initialState={parseWhatWeHaving(params)}
+    />
+  );
 }
