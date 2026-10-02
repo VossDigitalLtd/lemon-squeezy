@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { RecipeService } from '@/lib/supabase/services';
 import { ok, apiError } from '@/lib/api/response';
+import { requireStaff } from '@/lib/auth/requireStaff';
 import type { RecipeFormData } from '@/types/recipe';
 
 /** GET /api/recipe/[id] — get a single recipe by ID */
@@ -34,11 +35,11 @@ export async function PUT(
     const { id } = await params;
 
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Only editors and admins can change content
 
-    if (!user) {
-      return apiError('Authentication required', 401);
-    }
+    const denied = await requireStaff(supabase);
+
+    if (denied) return denied;
 
     let body: RecipeFormData;
     try {
@@ -74,11 +75,11 @@ export async function DELETE(
     const { id } = await params;
 
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Only editors and admins can change content
 
-    if (!user) {
-      return apiError('Authentication required', 401);
-    }
+    const denied = await requireStaff(supabase);
+
+    if (denied) return denied;
 
     const adminClient = createAdminClient();
     const result = await RecipeService.deleteRecipe(adminClient, id);

@@ -61,10 +61,18 @@ export const ROLE_LEVEL: Record<string, number> = {
 };
 
 export const ROLE_LABELS: Record<string, string> = {
-  user: 'User',
+  user: 'Member',
   editor: 'Editor',
   admin: 'Admin',
   super_admin: 'Super Admin',
+};
+
+/** What each role can do, shown when choosing a role on /admin/users */
+export const ROLE_DESCRIPTIONS: Record<string, string> = {
+  user: 'Uses the public site and saves recipes. No admin access.',
+  editor: 'Adds and edits recipes and categories.',
+  admin: 'Everything an editor can do, plus managing members and editors.',
+  super_admin: 'Full control, including managing other admins.',
 };
 
 export const ADMIN_ASSIGNABLE_ROLES: ValidRole[] = ['user', 'editor', 'admin'];

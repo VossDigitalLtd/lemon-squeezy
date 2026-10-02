@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/utils/cn';
+import { isStaffRole } from '@/lib/auth/roles';
 
 /**
  * Public site header: logo, section nav with a highlighter underline for the
@@ -189,9 +190,30 @@ function RecipeBoxLink() {
   );
 }
 
+/** Whether the signed-in person can use the admin area (editor or above) */
+function useIsStaff(userId: string | undefined) {
+  const [isStaff, setIsStaff] = useState(false);
+  useEffect(() => {
+    if (!userId) {
+      setIsStaff(false);
+      return;
+    }
+    let cancelled = false;
+    fetch('/api/profile', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => !cancelled && setIsStaff(isStaffRole(json?.data?.role)))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+  return isStaff;
+}
+
 function AccountControl() {
   const { user, isLoading } = useAuth();
   const pathname = usePathname();
+  const isStaff = useIsStaff(user?.id);
 
   // Fixed-size slot so nothing moves when the sign-in check finishes
   if (isLoading) return <span className="hidden size-10 md:block" aria-hidden="true" />;
@@ -236,11 +258,13 @@ function AccountControl() {
             <User size={16} /> Your account
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/admin" className="cursor-pointer gap-2.5 rounded-xl py-2">
-            <Settings size={16} /> Admin
-          </Link>
-        </DropdownMenuItem>
+        {isStaff && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin" className="cursor-pointer gap-2.5 rounded-xl py-2">
+              <Settings size={16} /> Admin
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           {/* <a> forces a full reload so the router cache clears after sign-out */}

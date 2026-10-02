@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { CategoryService } from '@/lib/supabase/services';
 import { ok, apiError } from '@/lib/api/response';
+import { requireStaff } from '@/lib/auth/requireStaff';
 import type { CategoryType } from '@/types/recipe';
 
 const VALID_TYPES: CategoryType[] = ['course', 'cuisine', 'dietary'];
@@ -26,11 +27,11 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Only editors and admins can change content
 
-    if (!user) {
-      return apiError('Authentication required', 401);
-    }
+    const denied = await requireStaff(supabase);
+
+    if (denied) return denied;
 
     let body: { type: CategoryType; uid?: string; title: string };
     try {

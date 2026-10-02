@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { ok, apiError } from '@/lib/api/response';
+import { requireStaff } from '@/lib/auth/requireStaff';
 
 const RECIPE_IMAGE_BUCKET = 'recipe-images';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -9,11 +10,11 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'ima
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Only editors and admins can change content
 
-    if (!user) {
-      return apiError('Authentication required', 401);
-    }
+    const denied = await requireStaff(supabase);
+
+    if (denied) return denied;
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;

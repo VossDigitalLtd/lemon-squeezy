@@ -5,6 +5,7 @@ import {
   Settings,
   UtensilsCrossed,
   Tags,
+  Globe,
 } from 'lucide-react';
 import { features } from './app';
 
@@ -44,6 +45,7 @@ export const FRONTEND_NAV_LINKS: AccountNavLink[] = [
 ];
 
 export const BOTTOM_NAV_LINKS: NavLink[] = [
+  { href: '/', icon: <Globe size={18} />, label: 'View site', exact: true },
   { href: '/admin/settings', icon: <Settings size={18} />, label: 'Settings' },
   ...(features.developer
     ? []

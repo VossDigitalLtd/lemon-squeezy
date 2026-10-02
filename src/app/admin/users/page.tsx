@@ -34,7 +34,7 @@ import { useAdminRole } from '@/app/admin/context';
 import { useAuth } from '@/lib/supabase/auth';
 import { useToast } from '@/hooks/useToast';
 import useDebounce from '@/hooks/useDebounce';
-import { ROLE_LABELS, ADMIN_ASSIGNABLE_ROLES, VALID_ROLES } from '@/lib/config/app';
+import { ROLE_LABELS, ROLE_DESCRIPTIONS, ADMIN_ASSIGNABLE_ROLES, VALID_ROLES } from '@/lib/config/app';
 import type { ValidRole } from '@/lib/config/app';
 
 // ---------------------------------------------------------------------------
@@ -143,8 +143,13 @@ function RoleSelect({
       </SelectTrigger>
       <SelectContent>
         {assignable.map((r) => (
-          <SelectItem key={r} value={r}>
-            {ROLE_LABELS[r] ?? r}
+          <SelectItem key={r} value={r} className="py-2">
+            <span className="grid">
+              <span>{ROLE_LABELS[r] ?? r}</span>
+              {ROLE_DESCRIPTIONS[r] && (
+                <span className="text-xs text-muted-foreground in-data-[slot=select-value]:hidden">{ROLE_DESCRIPTIONS[r]}</span>
+              )}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>

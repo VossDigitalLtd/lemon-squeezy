@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { RecipeService } from '@/lib/supabase/services';
 import { ok, apiError } from '@/lib/api/response';
+import { requireStaff } from '@/lib/auth/requireStaff';
 import type { RecipeFormData } from '@/types/recipe';
 
 /** GET /api/recipe — list recipes with search + pagination */
@@ -32,11 +33,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Only editors and admins can change content
 
-    if (!user) {
-      return apiError('Authentication required', 401);
-    }
+    const denied = await requireStaff(supabase);
+
+    if (denied) return denied;
 
     let body: RecipeFormData;
     try {

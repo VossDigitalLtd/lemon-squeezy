@@ -8,6 +8,8 @@ import {
   Users,
   Settings,
   ArrowUpRight,
+  ExternalLink,
+  Globe,
   type LucideIcon,
 } from 'lucide-react';
 import { useAdminRole } from '@/app/admin/context';
@@ -112,9 +114,19 @@ export default function AdminDashboard() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Welcome back, {firstName}</h1>
-        <p className="text-muted-foreground mt-1">Manage your Lemon Squeezy recipe collection.</p>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Welcome back, {firstName}</h1>
+          <p className="text-muted-foreground mt-1">Manage your Lemon Squeezy recipe collection.</p>
+        </div>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:brightness-95"
+        >
+          <Globe size={16} />
+          View the site
+          <ExternalLink size={14} className="opacity-60" />
+        </Link>
       </div>
 
       {/* Stats */}
@@ -162,6 +174,12 @@ export default function AdminDashboard() {
               icon={Users}
             />
           )}
+          <QuickAction
+            title="View the site"
+            description="See the homepage and recipes as visitors do."
+            href="/"
+            icon={Globe}
+          />
           <QuickAction
             title="Appearance"
             description="Switch themes and adjust font size."

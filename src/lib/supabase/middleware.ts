@@ -1,6 +1,7 @@
 // lib/supabase/middleware.ts
 // Middleware client for Supabase - use in Next.js middleware for session refresh
 import { createServerClient } from '@supabase/ssr';
+import { isStaffRole } from '@/lib/auth/roles';
 import { NextResponse, NextRequest } from 'next/server';
 
 interface CookieToSet {
@@ -131,7 +132,9 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
     const profileData = profile as { role?: string; onboarding_completed?: boolean } | null;
 
-    if (profileData?.role === 'user') {
+    // Only staff roles get in. A missing profile or role (e.g. before the
+    // profiles table is upgraded) is treated as a member, never as staff.
+    if (!isStaffRole(profileData?.role)) {
       const url = request.nextUrl.clone();
       url.pathname = process.env.NEXT_PUBLIC_HOME_REDIRECT ?? (accountEnabled ? '/account' : '/');
       return NextResponse.redirect(url);

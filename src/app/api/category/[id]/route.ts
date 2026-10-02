@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { CategoryService } from '@/lib/supabase/services';
 import type { CategoryUpdate } from '@/lib/supabase/services/CategoryService';
 import { ok, apiError } from '@/lib/api/response';
+import { requireStaff } from '@/lib/auth/requireStaff';
 
 /** Pick and validate the editable fields from a request body */
 function parseUpdate(body: Record<string, unknown>): CategoryUpdate | string {
@@ -42,11 +43,11 @@ export async function PUT(
     const { id } = await params;
 
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Only editors and admins can change content
 
-    if (!user) {
-      return apiError('Authentication required', 401);
-    }
+    const denied = await requireStaff(supabase);
+
+    if (denied) return denied;
 
     let body: Record<string, unknown>;
     try {
@@ -83,11 +84,11 @@ export async function DELETE(
     const { id } = await params;
 
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Only editors and admins can change content
 
-    if (!user) {
-      return apiError('Authentication required', 401);
-    }
+    const denied = await requireStaff(supabase);
+
+    if (denied) return denied;
 
     const adminClient = createAdminClient();
     const result = await CategoryService.deleteCategory(adminClient, id);
