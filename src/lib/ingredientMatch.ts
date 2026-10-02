@@ -31,7 +31,7 @@ const PREP_WORDS = [
   'peeled', 'deseeded', 'seeded', 'halved', 'quartered', 'torn', 'shredded', 'crumbled', 'beaten', 'melted',
   'softened', 'cooked', 'uncooked', 'drained', 'rinsed', 'trimmed', 'washed', 'fresh', 'freshly', 'large',
   'medium', 'small', 'ripe', 'boneless', 'skinless', 'bone-in', 'skin-on', 'whole', 'extra', 'heaped', 'level',
-  'good', 'quality', 'approx', 'about', 'optional',
+  'good', 'quality', 'approx', 'about', 'optional', 'unwaxed',
 ];
 const PREP_PHRASES = [
   'skin on', 'bone in', 'at room temperature', 'room temperature', 'to serve', 'for serving', 'to taste',
@@ -87,7 +87,7 @@ function parseLeadingQuantity(s: string): { quantity: number | null; rest: strin
     return { quantity: n, rest: s.slice(m[0].length) };
   }
   // "a squeeze of…", "a pinch of…" aren't quantities
-  const w = s.match(/^(a|an|one|half|two|three|four|five|six)\s+(?:a\s+)?(?!squeeze|pinch|splash|handful|drizzle|dash|knob|few|little|bit)/);
+  const w = s.match(/^(a|an|one|half|two|three|four|five|six)\s+(?:a\s+)?(?!\d|squeeze|pinch|splash|handful|drizzle|dash|knob|few|little|bit)/);
   if (w) return { quantity: NUMBER_WORDS[w[1]], rest: s.slice(w[0].length) };
   const frac = s.match(/^(?:a\s+)?(\d)\/(\d)\s+/);
   if (frac) return { quantity: Number(frac[1]) / Number(frac[2]), rest: s.slice(frac[0].length) };
@@ -131,6 +131,13 @@ export function parseIngredientName(raw: string): ParsedName {
     }
   }
 
+  // "x 4 pack of…" (a count) and "x 15g pack…" / "ball (125g)…" (a pack size) come before the container word
+  const times = s.match(/^x\s*(\d+)\s+(?!g\b|kg\b|ml\b|l\b)/);
+  if (times) {
+    if (quantity == null) quantity = Number(times[1]);
+    s = s.slice(times[0].length);
+  }
+  s = s.replace(/^x\s*\d+(?:\.\d+)?\s*(?:g|kg|ml|l)\s+/, '');
   s = s.replace(CONTAINERS, '');
   // A measure at the start: keep its number and unit ("1tsp mustard", "2 tbsp oil")
   let unit: ParsedName['unit'];
@@ -165,6 +172,12 @@ export function parseIngredientName(raw: string): ParsedName {
   while (kept.length && ['and', 'or', 'of', 'for', 'with'].includes(kept[kept.length - 1])) kept.pop();
   while (kept.length && ['and', 'or', 'of', 'a'].includes(kept[0])) kept.shift();
 
+  // "lime or lemon" → lime, noting "or lemon"
+  const orAt = kept.indexOf('or');
+  if (orAt > 0 && orAt < kept.length - 1) {
+    notes.push(kept.slice(orAt).join(' '));
+    kept.splice(orAt);
+  }
   const name = kept.join(' ').replace(/[.;:]+$/, '').trim();
   if (kept.length) kept[kept.length - 1] = singular(kept[kept.length - 1]);
   let core = stripAccents(kept.join(' ').replace(/[.;:]+$/, '').trim());

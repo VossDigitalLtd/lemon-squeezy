@@ -41,6 +41,15 @@ it('keeps a measure written into the name as the unit', () => {
   expect(parseIngredientName('lemons')).not.toHaveProperty('unit');
 });
 
+it('handles packs, multipliers, alternatives and buying details', () => {
+  expect(parseIngredientName('Juice of a 1/4 lemon')).toMatchObject({ core: 'lemon', quantity: 0.25, note: 'juice' });
+  expect(parseIngredientName('x 15g pack fresh oregano, leaves finely chopped')).toMatchObject({ core: 'oregano' });
+  expect(parseIngredientName('x 4 pack of Crunchie bars (128g per pack)')).toMatchObject({ core: 'crunchie bar', quantity: 4 });
+  expect(parseIngredientName('unwaxed lemons, zest of both')).toMatchObject({ core: 'lemon' });
+  expect(parseIngredientName('Juice of 1 lime or lemon')).toMatchObject({ core: 'lime', quantity: 1, note: 'juice, or lemon' });
+  expect(parseIngredientName('Zest of 1 orange or clementine')).toMatchObject({ core: 'orange', note: 'zest, or clementine' });
+});
+
 describe('singular', () => {
   it('handles common plurals and leaves the rest', () => {
     expect(['tomatoes', 'potatoes', 'berries', 'peaches', 'onions', 'hummus', 'couscous', 'peas', 'eggs'].map(singular)).toEqual([
