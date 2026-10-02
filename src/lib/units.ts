@@ -53,9 +53,11 @@ export const UNITS_BY_TYPE: Record<UnitType, UnitKey[]> = {
 
 // ─── Preferred conversions (imperial ↔ metric) ──────────────────────────────
 
+// tsp and tbsp are left out on purpose: spoon measures read the same in both
+// systems, and "14.79 ml garlic" is no use to anyone holding a teaspoon.
 const EQUIVALENTS: Partial<Record<UnitKey, UnitKey>> = {
   // Volume
-  tsp: 'ml', tbsp: 'ml', floz: 'ml', cup: 'ml', pint: 'ml',
+  floz: 'ml', cup: 'ml', pint: 'ml',
   ml: 'floz', l: 'pint',
   // Weight
   oz: 'g', lb: 'kg',

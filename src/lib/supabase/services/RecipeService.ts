@@ -23,46 +23,53 @@ import type {
 } from '@/types/recipe';
 
 // Select strings for Supabase queries
-const RECIPE_SUMMARY_SELECT = `
-  id, uid, title, short_description,
+export const RECIPE_SUMMARY_SELECT = `
+  id, uid, title, subtitle, short_description,
   feature_image_path, feature_image_alt,
-  prep_time, cook_time,
+  prep_time, cook_time, total_time,
   recipe_categories(category:categories(id, type, uid, title))
 `;
 
 const RECIPE_FULL_SELECT = `
-  id, uid, title, short_description, full_description,
+  id, uid, title, subtitle, short_description, full_description,
   feature_image_path, feature_image_alt,
-  prep_time, cook_time, servings, calories_per_serving,
+  prep_time, cook_time, total_time, servings, calories_per_serving,
   ingredient_groups, method_groups,
   serving_suggestions, tips,
+  featured_from, published_at,
   created_at, updated_at,
   recipe_categories(category:categories(id, type, uid, title)),
   recipe_accompanying!recipe_accompanying_recipe_id_fkey(accompanying:recipes!recipe_accompanying_accompanying_id_fkey(
-    id, uid, title, short_description, feature_image_path, feature_image_alt
+    id, uid, title, subtitle, short_description, feature_image_path, feature_image_alt,
+    prep_time, cook_time, total_time,
+    recipe_categories(category:categories(id, type, uid, title))
   ))
 `;
 
-interface RawRecipeRow {
+export interface RawRecipeRow {
   id: string;
   uid: string;
   title: string;
+  subtitle?: string;
   short_description: string;
   full_description?: string;
   feature_image_path: string | null;
   feature_image_alt: string | null;
   prep_time?: number | null;
   cook_time?: number | null;
+  total_time?: number | null;
   servings?: number | null;
   calories_per_serving?: number | null;
   ingredient_groups?: Recipe['ingredient_groups'];
   method_groups?: Recipe['method_groups'];
   serving_suggestions?: string;
   tips?: string;
+  featured_from?: string | null;
+  published_at?: string;
   created_at?: string;
   updated_at?: string;
   recipe_categories: { category: Category }[];
-  recipe_accompanying?: { accompanying: RecipeSummary }[];
+  recipe_accompanying?: { accompanying: RawRecipeRow }[];
 }
 
 /**
@@ -77,16 +84,18 @@ function transformCategories(row: RawRecipeRow) {
   };
 }
 
-function toRecipeSummary(row: RawRecipeRow): RecipeSummary {
+export function toRecipeSummary(row: RawRecipeRow): RecipeSummary {
   return {
     id: row.id,
     uid: row.uid,
     title: row.title,
+    subtitle: row.subtitle || '',
     short_description: row.short_description,
     feature_image_path: row.feature_image_path,
     feature_image_alt: row.feature_image_alt,
     prep_time: row.prep_time ?? null,
     cook_time: row.cook_time ?? null,
+    total_time: row.total_time ?? null,
     ...transformCategories(row),
   };
 }
@@ -96,6 +105,7 @@ function toRecipe(row: RawRecipeRow): Recipe {
     id: row.id,
     uid: row.uid,
     title: row.title,
+    subtitle: row.subtitle || '',
     short_description: row.short_description,
     full_description: row.full_description || '',
     feature_image_path: row.feature_image_path,
@@ -104,20 +114,17 @@ function toRecipe(row: RawRecipeRow): Recipe {
     cook_time: row.cook_time ?? null,
     servings: row.servings ?? null,
     calories_per_serving: row.calories_per_serving ?? null,
+    total_time: row.total_time ?? null,
     ingredient_groups: row.ingredient_groups || [],
     method_groups: row.method_groups || [],
     serving_suggestions: row.serving_suggestions || '',
     tips: row.tips || '',
+    featured_from: row.featured_from ?? null,
+    published_at: row.published_at || row.created_at || '',
     created_at: row.created_at || '',
     updated_at: row.updated_at || '',
     ...transformCategories(row),
-    accompanying_recipes: (row.recipe_accompanying || []).map((ra) => ({
-      ...ra.accompanying,
-      // Accompanying recipes fetched here don't have their own categories joined
-      course_categories: [],
-      cuisine_categories: [],
-      dietary_categories: [],
-    })),
+    accompanying_recipes: (row.recipe_accompanying || []).map((ra) => toRecipeSummary(ra.accompanying)),
   };
 }
 
@@ -138,7 +145,17 @@ class RecipeServiceClass extends BaseQueryService {
    */
   async getAll(
     supabase: SupabaseClient,
-    options: { page?: number; limit?: number; search?: string; categoryId?: string } = {}
+    options: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      categoryId?: string;
+      /** Only recipes whose total time is at most this many minutes */
+      maxTime?: number;
+      /** Only recipes with a feature image */
+      withImage?: boolean;
+      excludeIds?: string[];
+    } = {}
   ): Promise<ServiceResponse<RecipeSummary[]> & { pagination?: Record<string, unknown> }> {
     try {
       const page = Math.max(1, options.page || 1);
@@ -167,8 +184,20 @@ class RecipeServiceClass extends BaseQueryService {
         }
       }
 
+      if (options.maxTime) {
+        query = query.lte('total_time', options.maxTime);
+      }
+
+      if (options.withImage) {
+        query = query.not('feature_image_path', 'is', null);
+      }
+
+      if (options.excludeIds?.length) {
+        query = query.not('id', 'in', `(${options.excludeIds.join(',')})`);
+      }
+
       query = query
-        .order('created_at', { ascending: false })
+        .order('published_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
       const { data, error, count } = await query;
@@ -194,6 +223,68 @@ class RecipeServiceClass extends BaseQueryService {
       console.error('[RecipeService] getAll error:', error);
       return { success: false, error: 'Failed to load recipes' };
     }
+  }
+
+  /**
+   * Recipe of the week: the recipe with the most recent featured_from on or
+   * before `today`. Falls back to the newest recipe with a photo.
+   */
+  async getFeatured(
+    supabase: SupabaseClient,
+    today: string = new Date().toISOString().slice(0, 10)
+  ): Promise<ServiceResponse<Recipe | null>> {
+    try {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select(RECIPE_FULL_SELECT)
+        .not('featured_from', 'is', null)
+        .not('feature_image_path', 'is', null)
+        .lte('featured_from', today)
+        .order('featured_from', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) return { success: true, data: toRecipe(data as unknown as RawRecipeRow) };
+
+      const { data: fallback, error: fallbackError } = await supabase
+        .from('recipes')
+        .select(RECIPE_FULL_SELECT)
+        .not('feature_image_path', 'is', null)
+        .order('published_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackError) throw fallbackError;
+      return { success: true, data: fallback ? toRecipe(fallback as unknown as RawRecipeRow) : null };
+    } catch (error) {
+      console.error('[RecipeService] getFeatured error:', error);
+      return { success: false, error: 'Failed to load featured recipe' };
+    }
+  }
+
+  /**
+   * Recipes in a category looked up by type + uid, e.g. ('cuisine', 'cypriot')
+   */
+  async getByCategoryUid(
+    supabase: SupabaseClient,
+    type: Category['type'],
+    uid: string,
+    options: { limit?: number; withImage?: boolean } = {}
+  ): Promise<ServiceResponse<RecipeSummary[]>> {
+    const { data: category } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('type', type)
+      .eq('uid', uid)
+      .maybeSingle();
+
+    if (!category) return { success: true, data: [] };
+
+    const result = await this.getAll(supabase, { ...options, categoryId: category.id });
+    return result.success
+      ? { success: true, data: result.data }
+      : { success: false, error: result.error };
   }
 
   /**
@@ -377,7 +468,7 @@ class RecipeServiceClass extends BaseQueryService {
       const { data, error } = await supabase
         .from('recipes')
         .select('uid')
-        .order('created_at', { ascending: false });
+        .order('published_at', { ascending: false });
 
       if (error) throw error;
 

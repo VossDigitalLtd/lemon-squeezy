@@ -23,3 +23,14 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+/**
+ * Split a trailing bracketed name off a title:
+ * "Greek Lemon Roast Potatoes (Patates Lemonates tou Fournou)"
+ *   → ["Greek Lemon Roast Potatoes", "Patates Lemonates tou Fournou"]
+ * Returns null when the title doesn't end in a bracket.
+ */
+export function splitSubtitle(title: string): [string, string] | null {
+  const match = title.match(/^(.*\S)\s*\(([^()]+)\)\s*$/);
+  return match ? [match[1].trim(), match[2].trim()] : null;
+}

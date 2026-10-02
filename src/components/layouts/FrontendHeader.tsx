@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Sun, Moon, Monitor, LogOut, User, Settings } from 'lucide-react';
-import { AppIcon } from '@/components/ui/AppIcon';
+import { LogoMark } from '@/components/brand';
 import { APP_NAME, features } from '@/lib/config/app';
 import { useAuth } from '@/lib/supabase/auth';
 import { useAppearanceSettings, type Theme } from '@/hooks/useAppearanceSettings';
@@ -74,16 +74,19 @@ export function FrontendHeader({ logoHref = '/', nav }: FrontendHeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 h-17 flex items-center gap-4">
 
         {/* Brand */}
-        <Link href={logoHref} className="flex items-center gap-2 flex-shrink-0">
-          <AppIcon size={44} />
-          <span className="font-semibold text-base text-foreground hidden sm:block">{APP_NAME}</span>
+        <Link href={logoHref} className="flex items-center gap-2.5 flex-shrink-0" aria-label={`${APP_NAME} home`}>
+          <LogoMark size={44} />
+          <span className="hidden sm:block leading-none">
+            <span className="block font-display text-2xl text-foreground">{APP_NAME.replace(/\s+/g, '')}</span>
+            <span className="block text-[0.6875rem] font-semibold text-foreground">NE1forSeconds</span>
+          </span>
         </Link>
 
         {/* Primary nav — pass via the `nav` prop */}
-        {nav && <div className="flex-1 ml-4">{nav}</div>}
+        {nav && <div className="flex-1 ml-6">{nav}</div>}
 
         {/* Right controls */}
         <div className="flex items-center gap-2 ml-auto">

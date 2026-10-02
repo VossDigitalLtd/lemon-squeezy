@@ -45,6 +45,7 @@ function emptyFormData(): RecipeFormData {
   return {
     uid: '',
     title: '',
+    subtitle: '',
     short_description: '',
     full_description: '',
     prep_time: null,
@@ -55,6 +56,7 @@ function emptyFormData(): RecipeFormData {
     method_groups: [{ group_title: '', items: [''] }],
     serving_suggestions: '',
     tips: '',
+    featured_from: null,
     course_category_ids: [],
     cuisine_category_ids: [],
     dietary_category_ids: [],
@@ -66,6 +68,7 @@ function recipeToFormData(recipe: Recipe): RecipeFormData {
   return {
     uid: recipe.uid,
     title: recipe.title,
+    subtitle: recipe.subtitle,
     short_description: recipe.short_description,
     full_description: recipe.full_description,
     feature_image_path: recipe.feature_image_path || undefined,
@@ -82,6 +85,8 @@ function recipeToFormData(recipe: Recipe): RecipeFormData {
       : [{ group_title: '', items: [''] }],
     serving_suggestions: recipe.serving_suggestions,
     tips: recipe.tips,
+    featured_from: recipe.featured_from,
+    published_at: recipe.published_at || undefined,
     course_category_ids: recipe.course_categories.map((c) => c.id),
     cuisine_category_ids: recipe.cuisine_categories.map((c) => c.id),
     dietary_category_ids: recipe.dietary_categories.map((c) => c.id),
@@ -325,6 +330,13 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
             />
           </Field>
         </div>
+        <Field label="Subtitle">
+          <Input
+            value={form.subtitle}
+            onChange={(e) => updateField('subtitle', e.target.value)}
+            placeholder="Second name shown in italics, e.g. Patates lemonates tou fournou"
+          />
+        </Field>
         <Field label="Short Description">
           <Textarea
             value={form.short_description}
@@ -599,6 +611,41 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
             rows={3}
           />
         </Field>
+      </Section>
+
+      {/* ── Publishing ── */}
+      <Section title="Publishing">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Published on">
+            <Input
+              type="date"
+              value={form.published_at ? form.published_at.slice(0, 10) : ''}
+              onChange={(e) =>
+                updateField('published_at', e.target.value ? new Date(`${e.target.value}T12:00:00Z`).toISOString() : undefined)
+              }
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Sets the order of &ldquo;Fresh off the chopping board&rdquo;. Leave blank on a new recipe to use today.
+            </p>
+          </Field>
+          <Field label="Recipe of the week from">
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={form.featured_from ?? ''}
+                onChange={(e) => updateField('featured_from', e.target.value || null)}
+              />
+              {form.featured_from && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => updateField('featured_from', null)}>
+                  Clear
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              The homepage features the recipe with the latest date that has arrived. Needs a feature image.
+            </p>
+          </Field>
+        </div>
       </Section>
 
       {/* ── Categories ── */}

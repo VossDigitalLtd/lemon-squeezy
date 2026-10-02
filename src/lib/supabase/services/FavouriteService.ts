@@ -13,6 +13,8 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { ServiceResponse } from '@/types';
+import type { RecipeSummary } from '@/types/recipe';
+import { RECIPE_SUMMARY_SELECT, toRecipeSummary, type RawRecipeRow } from './RecipeService';
 
 class FavouriteServiceClass {
   /**
@@ -36,6 +38,37 @@ class FavouriteServiceClass {
       };
     } catch (error) {
       console.error('[FavouriteService] getUserFavouriteIds error:', error);
+      return { success: false, error: 'Failed to load favourites' };
+    }
+  }
+
+  /**
+   * Get the user's favourite recipes as summaries, most recently saved first
+   */
+  async getUserFavourites(
+    supabase: SupabaseClient,
+    userId: string,
+    options: { limit?: number } = {}
+  ): Promise<ServiceResponse<RecipeSummary[]>> {
+    try {
+      let query = supabase
+        .from('favourites')
+        .select(`created_at, recipe:recipes(${RECIPE_SUMMARY_SELECT})`)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (options.limit) query = query.limit(options.limit);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const rows = (data || []) as unknown as { recipe: RawRecipeRow | null }[];
+      return {
+        success: true,
+        data: rows.filter((r) => r.recipe).map((r) => toRecipeSummary(r.recipe!)),
+      };
+    } catch (error) {
+      console.error('[FavouriteService] getUserFavourites error:', error);
       return { success: false, error: 'Failed to load favourites' };
     }
   }

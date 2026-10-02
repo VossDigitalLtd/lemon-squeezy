@@ -1,12 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
+import { Plus, Pencil, Trash2, Check, X, ImagePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/lib/toast/context';
+import { getImageUrl } from '@/lib/recipes';
 import type { Category, CategoryType } from '@/types/recipe';
+import type { CategoryUpdate } from '@/lib/supabase/services/CategoryService';
 
 const TAB_CONFIG: { type: CategoryType; label: string }[] = [
   { type: 'course', label: 'Courses' },
@@ -74,7 +78,9 @@ export default function AdminCategoriesPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Categories</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage recipe categories for courses, cuisines, and dietary options
+          Manage recipe categories for courses, cuisines, and dietary options.
+          Switch on <strong>Homepage</strong> to show a category in the homepage rail; lower
+          order numbers come first. Categories without a photo use their newest recipe photo.
         </p>
       </div>
 
@@ -124,6 +130,7 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
   const { addToast } = useToast();
 
   async function handleCreate() {
@@ -147,21 +154,42 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
     }
   }
 
-  async function handleUpdate(id: string) {
-    if (!editTitle.trim()) return;
+  async function saveCategory(id: string, update: CategoryUpdate, message = 'Category updated') {
     try {
       const res = await fetch(`/api/category/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editTitle.trim() }),
+        body: JSON.stringify(update),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to update');
       onUpdated(json.data);
-      setEditingId(null);
-      addToast('Category updated', 'success');
+      addToast(message, 'success');
+      return true;
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Failed to update category', 'error');
+      return false;
+    }
+  }
+
+  async function handleUpdate(id: string) {
+    if (!editTitle.trim()) return;
+    if (await saveCategory(id, { title: editTitle.trim() })) setEditingId(null);
+  }
+
+  async function handleImageUpload(cat: Category, file: File) {
+    setUploadingId(cat.id);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Upload failed');
+      await saveCategory(cat.id, { image_path: json.data.path, image_alt: cat.title }, 'Photo updated');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to upload image', 'error');
+    } finally {
+      setUploadingId(null);
     }
   }
 
@@ -216,6 +244,12 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
         ) : (
           categories.map((cat) => (
             <div key={cat.id} className="flex items-center gap-3 px-4 py-2.5">
+              <CategoryPhoto
+                category={cat}
+                uploading={uploadingId === cat.id}
+                onUpload={(file) => handleImageUpload(cat, file)}
+                onRemove={() => saveCategory(cat.id, { image_path: null, image_alt: null }, 'Photo removed')}
+              />
               {editingId === cat.id ? (
                 <>
                   <Input
@@ -237,7 +271,33 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
                 </>
               ) : (
                 <>
-                  <span className="text-sm text-foreground flex-1">{cat.title}</span>
+                  <span className="text-sm text-foreground flex-1 min-w-0 truncate">{cat.title}</span>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Switch
+                      size="sm"
+                      checked={!!cat.show_on_home}
+                      onCheckedChange={(checked) =>
+                        saveCategory(cat.id, { show_on_home: checked }, checked ? 'Shown on homepage' : 'Hidden from homepage')
+                      }
+                      aria-label={`Show ${cat.title} on the homepage`}
+                    />
+                    Homepage
+                  </label>
+                  {cat.show_on_home && (
+                    <Input
+                      type="number"
+                      defaultValue={cat.sort_order ?? 0}
+                      onBlur={(e) => {
+                        const value = parseInt(e.target.value, 10);
+                        if (Number.isInteger(value) && value !== cat.sort_order) {
+                          saveCategory(cat.id, { sort_order: value }, 'Order updated');
+                        }
+                      }}
+                      className="h-8 w-16 text-sm"
+                      aria-label={`Homepage order for ${cat.title}`}
+                      title="Homepage order (lower comes first)"
+                    />
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => startEditing(cat)}>
                     <Pencil size={14} />
                   </Button>
@@ -256,6 +316,62 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Category photo ──────────────────────────────────────────────────────────
+
+interface CategoryPhotoProps {
+  category: Category;
+  uploading: boolean;
+  onUpload: (file: File) => void;
+  onRemove: () => void;
+}
+
+function CategoryPhoto({ category, uploading, onUpload, onRemove }: CategoryPhotoProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const url = getImageUrl(category.image_path ?? null);
+
+  return (
+    <div className="relative h-10 w-10 flex-shrink-0">
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="h-10 w-10 rounded-full overflow-hidden border border-border bg-muted flex items-center justify-center text-muted-foreground hover:border-primary transition-colors"
+        aria-label={url ? `Replace photo for ${category.title}` : `Add photo for ${category.title}`}
+        title={url ? 'Replace photo' : 'Add photo'}
+      >
+        {url ? (
+          <Image src={url} alt={category.image_alt || category.title} width={40} height={40} className="h-full w-full object-cover" />
+        ) : uploading ? (
+          <span className="text-[10px]">…</span>
+        ) : (
+          <ImagePlus size={16} />
+        )}
+      </button>
+      {url && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-foreground text-background flex items-center justify-center"
+          aria-label={`Remove photo for ${category.title}`}
+        >
+          <X size={10} />
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onUpload(file);
+          e.target.value = '';
+        }}
+      />
     </div>
   );
 }

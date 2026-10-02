@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AuthProvider } from '@/lib/supabase/auth';
 import { ToastProvider } from '@/lib/toast/context';
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, DM_Serif_Display } from "next/font/google";
 import { APP_NAME, APP_DESCRIPTION } from '@/lib/config/app';
 import "./globals.css";
 
@@ -12,6 +12,14 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+// Display face for headings on the public site (font-display)
+const dmSerifDisplay = DM_Serif_Display({
+  variable: "--font-dm-serif-display",
+  weight: "400",
+  style: ["normal", "italic"],
   subsets: ["latin"],
 });
 
@@ -32,7 +40,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('theme')||'system';if(t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark');var f=localStorage.getItem('font-size');if(f)document.documentElement.setAttribute('data-font-size',f);}catch(e){}})();` }} />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${dmSerifDisplay.variable} antialiased`}
       >
         <AuthProvider>
           <ToastProvider>
