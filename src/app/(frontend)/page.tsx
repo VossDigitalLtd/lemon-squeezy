@@ -212,7 +212,9 @@ export default async function HomePage() {
           more={favourites.length ? { href: '/recipes?favourites=1', label: 'Open recipe box' } : undefined}
         >
           {favourites.length > 0 ? (
-            <div className="-mx-4 grid snap-x snap-mandatory auto-cols-[minmax(15rem,1fr)] grid-flow-col gap-6 overflow-x-auto px-4 pb-3 sm:mx-0 sm:px-0">
+            <div className="-mx-4 grid snap-x snap-mandatory auto-cols-[minmax(15rem,calc((100%-4.5rem)/4))] grid-flow-col justify-start gap-6 overflow-x-auto px-4 pb-3 sm:mx-0 sm:px-0">
+              {/* Fixed card width (a quarter of the row, at least 15rem) so one or two
+                  saved recipes don't stretch to fill the whole row */}
               {favourites.map((r) => (
                 <RecipeCard key={r.id} recipe={r} action={heart(r)} className="snap-start" sizes="280px" />
               ))}
