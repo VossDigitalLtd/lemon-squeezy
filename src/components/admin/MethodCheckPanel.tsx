@@ -87,7 +87,7 @@ export function MethodCheckPanel({ ingredients, method, links, onChange }: Metho
                 step={s}
                 terms={terms}
                 links={links}
-                amountFor={(ids) => ids.map(nameOf).join(', ')}
+                amountFor={(ids) => ids.map(nameOf)}
                 showAll={false}
                 timers={false}
               />

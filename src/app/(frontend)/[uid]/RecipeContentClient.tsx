@@ -38,7 +38,7 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
       if (localStorage.getItem('ls-step-amounts') === '1') setShowAmounts(true);
     } catch {}
   }, []);
-  function amountFor(ids: string[]): string {
+  function amountFor(ids: string[]): string[] {
     const amounts = ids.map((id) => {
       const lines = recipe.ingredient_groups.flatMap((g) => g.items).filter((i) => i.ingredient_id === id);
       const amount = lines
@@ -47,11 +47,8 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
         .join(' + ');
       return { amount, name: lines[0]?.name ?? '' };
     });
-    if (ids.length === 1) return amounts[0].amount;
-    return amounts
-      .filter((a) => a.amount)
-      .map((a) => `${a.amount} ${a.name}`)
-      .join(' · ');
+    if (ids.length === 1) return amounts[0].amount ? [amounts[0].amount] : [];
+    return amounts.filter((a) => a.amount).map((a) => `${a.amount} ${a.name}`);
   }
 
   // Number steps continuously across method groups
