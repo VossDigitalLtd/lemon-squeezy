@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Heart, Link2, Lock, LockOpen, Minus, Plus, RefreshCw, Shuffle, SlidersHorizontal } from 'lucide-react';
+import { ArrowRight, BookmarkPlus, Heart, Link2, Lock, LockOpen, Minus, Plus, RefreshCw, Shuffle, SlidersHorizontal } from 'lucide-react';
 import { LogoTimer, LogoRays, LaceBand } from '@/components/brand';
 import { FavouriteHeart } from '@/components/recipe/FavouriteHeart';
 import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { AddToListButton } from '@/components/recipe/AddToListButton';
+import { SignInPromptDialog } from '@/components/auth/SignInPromptDialog';
 import { useToast } from '@/hooks/useToast';
 import { getImageUrl } from '@/lib/recipes';
 import { formatMinutesShort } from '@/lib/time';
@@ -376,6 +379,7 @@ export default function WhatWeHavingClient({ recipes, categories, pairingRows, f
               onToggleLock={toggleLock}
               onCopyLink={copyLink}
               onSaveAll={saveAll}
+              saveOptions={{ filters, shape, sameCuisine, usePairings }}
             />
           )}
         </div>
@@ -470,6 +474,7 @@ function MealResult({
   onToggleLock,
   onCopyLink,
   onSaveAll,
+  saveOptions,
 }: {
   round: number;
   slots: MealSlot[];
@@ -483,6 +488,7 @@ function MealResult({
   onToggleLock: (slotId: string) => void;
   onCopyLink: () => void;
   onSaveAll: (dishes: RecipeSummary[]) => void;
+  saveOptions: Record<string, unknown>;
 }) {
   const dishes = meal ? slots.map((s) => meal[s.id] ?? null) : [];
   const chosen = dishes.filter((d): d is RecipeSummary => !!d);
@@ -533,6 +539,13 @@ function MealResult({
                 >
                   <Link2 size={16} /> Share menu
                 </button>
+                {chosen.length > 0 && (
+                  <SaveMenuButton
+                    isLoggedIn={isLoggedIn}
+                    dishes={slots.filter((s) => meal[s.id]).map((s) => ({ slot: s.id, recipe_id: meal[s.id]!.id }))}
+                    options={saveOptions}
+                  />
+                )}
                 {isLoggedIn && chosen.length > 0 && (
                   <button
                     type="button"
@@ -610,6 +623,12 @@ function MealResult({
               );
             })}
           </ol>
+          {chosen.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 px-6 py-4 sm:px-8">
+              <p className="text-sm text-muted-foreground">Shopping for this? Add every dish and the ingredients are combined.</p>
+              <AddToListButton items={chosen.map((d) => ({ recipe_id: d.id }))} label="this menu" className="h-10" />
+            </div>
+          )}
         </article>
       ) : (
         <EmptyState
@@ -762,5 +781,107 @@ function StepButton({ label, disabled, onClick, children }: { label: string; dis
     >
       {children}
     </button>
+  );
+}
+
+// ─── Save a menu ─────────────────────────────────────────────────────────────
+
+function defaultMenuName() {
+  const day = new Date().toLocaleDateString('en-GB', { weekday: 'long' });
+  return `${day} night menu`;
+}
+
+function SaveMenuButton({
+  isLoggedIn,
+  dishes,
+  options,
+}: {
+  isLoggedIn: boolean;
+  dishes: { slot: string; recipe_id: string }[];
+  options: Record<string, unknown>;
+}) {
+  const { addToast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(defaultMenuName);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/meal-plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), dishes, options }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to save the menu');
+      setSaved(true);
+      setOpen(false);
+      addToast(`Saved "${name.trim()}" to your menus`, 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to save the menu', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      {saved ? (
+        <Link
+          href="/account/menus"
+          className="inline-flex h-10 items-center gap-2 rounded-full border border-viz-good/50 bg-card px-4 text-sm font-medium text-viz-good"
+        >
+          Saved: see your menus
+        </Link>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-medium transition hover:border-foreground"
+        >
+          <BookmarkPlus size={16} /> Save menu
+        </button>
+      )}
+
+      {isLoggedIn ? (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="rounded-3xl p-8 sm:max-w-md">
+            <DialogTitle className="font-display text-[1.875rem] font-normal leading-tight">Save this menu</DialogTitle>
+            <DialogDescription className="text-base">Find it again under Saved menus in your account.</DialogDescription>
+            <form onSubmit={save} className="mt-2 grid gap-4">
+              <label htmlFor="menu-name" className="grid gap-1.5 text-sm font-medium">
+                Name
+                <input
+                  id="menu-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={120}
+                  autoFocus
+                  className="h-12 rounded-xl border border-border bg-card px-4 text-base font-normal focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={saving || !name.trim()}
+                className="inline-flex h-12 items-center justify-center rounded-full bg-primary font-medium text-primary-foreground transition hover:brightness-95 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save menu'}
+              </button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      ) : (
+        <SignInPromptDialog
+          open={open}
+          onOpenChange={setOpen}
+          icon={<BookmarkPlus size={26} />}
+          title="Save your menus"
+          text="Keep the meals you plan so you can cook them again or add them to your shopping list later. It's free."
+        />
+      )}
+    </>
   );
 }

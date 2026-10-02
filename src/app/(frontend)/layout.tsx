@@ -14,8 +14,8 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
           flex-col lets a page band grow to fill the height (flex-1); children are
           forced full width because centred mx-auto boxes otherwise shrink to fit
           their content in a flex column (e.g. one search result). */}
-      <main className="flex flex-1 flex-col pb-20 [&>*]:w-full [&:has(>[data-flush-bottom]:last-child)]:pb-0">{children}</main>
-      <footer className="bg-footer text-footer-foreground">
+      <main className="flex flex-1 flex-col pb-20 print:pb-0 [&>*]:w-full [&:has(>[data-flush-bottom]:last-child)]:pb-0">{children}</main>
+      <footer className="bg-footer text-footer-foreground print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 py-12 grid justify-items-center gap-6 text-center">
           <LogoMark size={52} className="text-footer-foreground" />
           <nav className="flex flex-wrap justify-center gap-6 text-[0.9375rem]" aria-label="Footer">

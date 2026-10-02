@@ -3,7 +3,7 @@
 import { useEffect, ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Heart, LayoutGrid, ShieldCheck, User, FileDown, LogOut } from 'lucide-react';
+import { Heart, LayoutGrid, ShieldCheck, User, FileDown, LogOut, ShoppingBasket, CalendarHeart } from 'lucide-react';
 import { useAuth } from '@/lib/supabase/auth';
 import { ACCOUNT_NAV_LINKS } from '@/lib/config/navigation';
 import { cn } from '@/utils/cn';
@@ -16,6 +16,8 @@ import { cn } from '@/utils/cn';
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   '/account': LayoutGrid,
   '/account/recipe-box': Heart,
+  '/account/shopping-list': ShoppingBasket,
+  '/account/menus': CalendarHeart,
   '/account/profile': User,
   '/account/security': ShieldCheck,
   '/account/data': FileDown,
@@ -33,10 +35,10 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
   const isActive = (href: string) => (href === '/account' ? pathname === '/account' : pathname.startsWith(href));
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pt-10 sm:px-8">
-      <div className="grid gap-8 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-14">
+    <div className="mx-auto max-w-7xl px-4 pt-10 sm:px-8 print:p-0">
+      <div className="grid gap-8 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-14 print:block">
         {/* Section nav */}
-        <nav aria-label="Account" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 lg:overflow-visible">
+        <nav aria-label="Account" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 lg:overflow-visible print:hidden">
           <p className="mb-3 hidden text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground lg:block">
             Your account
           </p>

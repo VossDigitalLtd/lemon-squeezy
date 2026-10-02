@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowDown, Flame, Users } from 'lucide-react';
+import { ArrowDown, Flame, Printer, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { RecipeService, FavouriteService } from '@/lib/supabase/services';
 import { getImageUrl, textToHtml } from '@/lib/recipes';
@@ -150,6 +150,13 @@ export default async function RecipePage({ params }: PageProps) {
               </a>
               <FavouriteButton recipeId={recipe.id} recipeTitle={recipe.title} initialFavourited={isFavourited} isLoggedIn={!!user} />
               <CookModeButton />
+              <Link
+                href={`/print/${recipe.uid}`}
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-5 text-[0.9375rem] font-medium transition hover:border-foreground"
+              >
+                <Printer size={17} />
+                Print
+              </Link>
             </div>
           </div>
 

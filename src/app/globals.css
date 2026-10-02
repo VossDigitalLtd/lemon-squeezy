@@ -194,3 +194,20 @@ html[data-font-size="large"]  { font-size: 18px; }
 @utility shadow-card {
   box-shadow: var(--shadow-card);
 }
+
+/* Printing (recipes, shopping list): white paper, sensible margins */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+  .print-recipe,
+  .shopping-list {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

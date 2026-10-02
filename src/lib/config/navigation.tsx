@@ -36,6 +36,8 @@ export interface AccountNavLink {
 export const ACCOUNT_NAV_LINKS: AccountNavLink[] = [
   { href: '/account', label: 'Overview' },
   { href: '/account/recipe-box', label: 'Recipe box' },
+  { href: '/account/shopping-list', label: 'Shopping list' },
+  { href: '/account/menus', label: 'Saved menus' },
   { href: '/account/profile', label: 'Profile' },
   { href: '/account/security', label: 'Security' },
   { href: '/account/data', label: 'Data & privacy' },

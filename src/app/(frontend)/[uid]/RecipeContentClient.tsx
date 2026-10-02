@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Minus, Plus, Check } from 'lucide-react';
+import { Minus, Plus, Check, Printer } from 'lucide-react';
 import { displayIngredient, formatAmount } from '@/lib/units';
 import { splitStepDurations } from '@/lib/time';
 import { StepTimer } from '@/components/recipe/StepTimer';
+import { AddToListButton } from '@/components/recipe/AddToListButton';
 import { cn } from '@/utils/cn';
 import type { Recipe } from '@/types/recipe';
 
@@ -140,6 +141,17 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
         ))}
 
         <p className="mt-4 text-[0.8125rem] text-muted-foreground">Tap an ingredient to tick it off.</p>
+        <AddToListButton
+          items={[{ recipe_id: recipe.id, servings }]}
+          label={`${servings} serving${servings === 1 ? '' : 's'}`}
+          className="mt-5 w-full"
+        />
+        <a
+          href={`/print/${recipe.uid}?servings=${servings}&units=${system}`}
+          className="mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 text-[0.9375rem] font-medium transition hover:border-foreground"
+        >
+          <Printer size={17} /> Print or save as PDF
+        </a>
       </aside>
 
       {/* ── Method ── */}

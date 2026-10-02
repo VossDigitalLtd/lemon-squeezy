@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Heart, LogOut, Menu, Search, Settings, User } from 'lucide-react';
+import { Heart, LogOut, Menu, Search, Settings, ShoppingBasket, User } from 'lucide-react';
 import { LogoMark } from '@/components/brand';
 import { ThemeSwitcher } from '@/components/layouts/ThemeSwitcher';
 import { APP_NAME, features } from '@/lib/config/app';
@@ -43,7 +43,7 @@ export function SiteHeader() {
   return (
     <header
       className={cn(
-        'sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 transition-[box-shadow,border-color] duration-200',
+        'sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 transition-[box-shadow,border-color] duration-200 print:hidden',
         'border-b',
         scrolled ? 'border-border shadow-[0_6px_20px_-12px_oklch(0_0_0/0.18)]' : 'border-transparent'
       )}
@@ -72,6 +72,7 @@ export function SiteHeader() {
           >
             <Search size={20} />
           </Link>
+          <ShoppingListLink />
           <RecipeBoxLink />
           <AccountControl />
           <button
@@ -166,6 +167,26 @@ function HeaderSearch({ className, autoFocus }: { className?: string; autoFocus?
 }
 
 // ─── Recipe box + account ────────────────────────────────────────────────────
+
+function ShoppingListLink() {
+  const { user, isLoading } = useAuth();
+  const href = user
+    ? '/account/shopping-list'
+    : features.signup
+      ? '/signup?next=%2Faccount%2Fshopping-list'
+      : '/login?next=%2Faccount%2Fshopping-list';
+
+  return (
+    <Link
+      href={href}
+      className={cn('grid size-10 place-items-center rounded-full text-foreground transition-colors hover:bg-muted', isLoading && 'invisible')}
+      aria-label="Your shopping list"
+      title="Shopping list"
+    >
+      <ShoppingBasket size={20} />
+    </Link>
+  );
+}
 
 function RecipeBoxLink() {
   const { user, isLoading } = useAuth();
@@ -302,6 +323,9 @@ function MobileMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (open
             <>
               <MobileLink href="/account/recipe-box" icon={<Heart size={18} className="text-red-600 dark:text-red-400" />}>
                 Recipe box
+              </MobileLink>
+              <MobileLink href="/account/shopping-list" icon={<ShoppingBasket size={18} />}>
+                Shopping list
               </MobileLink>
               <MobileLink href="/account" icon={<User size={18} />}>
                 Your account
