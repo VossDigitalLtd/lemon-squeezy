@@ -8,9 +8,18 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { ServiceResponse } from '@/types';
 import type { IngredientGroup, LibraryIngredient } from '@/types/recipe';
+import { formatIngredient } from '@/lib/units';
 import { AISLES, guessAisle, isStaple, slugify, parseIngredientName, type Aisle } from '@/lib/ingredientMatch';
 
 const SELECT = 'id, name, slug, category, is_staple';
+
+export interface IngredientUse {
+  id: string;
+  uid: string;
+  title: string;
+  /** The recipe's lines for this ingredient, as written */
+  lines: string[];
+}
 
 export interface IngredientUpdate {
   name?: string;
@@ -135,6 +144,25 @@ class IngredientServiceClass {
     const { error } = await admin.from('ingredients').delete().eq('id', fromId);
     if (error) return { success: false, error: 'Failed to remove the merged ingredient' };
     return { success: true, data: { recipes: recipeIds.length } };
+  }
+
+  /** Recipes that use an entry, with each line as written ("3 chicken breasts, cubed") */
+  async usedIn(supabase: SupabaseClient, id: string): Promise<ServiceResponse<IngredientUse[]>> {
+    const { data: links, error } = await supabase.from('recipe_ingredients').select('recipe_id').eq('ingredient_id', id);
+    if (error) return { success: false, error: 'Failed to load the recipes' };
+    const ids = (links || []).map((l) => l.recipe_id as string);
+    if (!ids.length) return { success: true, data: [] };
+    const { data: recipes, error: e } = await supabase.from('recipes').select('id, uid, title, ingredient_groups').in('id', ids).order('title');
+    if (e) return { success: false, error: 'Failed to load the recipes' };
+    return {
+      success: true,
+      data: ((recipes || []) as { id: string; uid: string; title: string; ingredient_groups: IngredientGroup[] }[]).map((r) => ({
+        id: r.id,
+        uid: r.uid,
+        title: r.title,
+        lines: r.ingredient_groups.flatMap((g) => g.items.filter((i) => i.ingredient_id === id).map((i) => formatIngredient(i))),
+      })),
+    };
   }
 
   /** Delete an entry no recipe uses */

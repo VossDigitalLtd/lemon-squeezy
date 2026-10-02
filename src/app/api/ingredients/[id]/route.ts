@@ -5,6 +5,18 @@ import { cleanIngredientUpdate } from '@/lib/supabase/services/IngredientService
 import { ok, apiError } from '@/lib/api/response';
 import { requireStaff } from '@/lib/auth/requireStaff';
 
+/** GET /api/ingredients/[id] — the recipes that use it, with their lines */
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const denied = await requireStaff(supabase);
+  if (denied) return denied;
+
+  const result = await IngredientService.usedIn(supabase, id);
+  if (!result.success) return apiError(result.error!, 500);
+  return ok({ data: result.data });
+}
+
 /** PUT /api/ingredients/[id] — rename, change aisle or staple flag */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

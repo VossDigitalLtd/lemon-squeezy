@@ -9,7 +9,9 @@
  *   - rewords recipe lines from their original wording in the build's backup,
  *     with the improved matcher ("pinch chilli flakes, good" → "chilli flakes,
  *     a good pinch"). Only where the line still links to the same ingredient
- *     and hasn't been edited since the build.
+ *     and hasn't been edited since the build. Only with --reword, and only
+ *     straight after the build: lines are matched to the backup by position,
+ *     so it would undo recipes edited since.
  *
  * Dry run by default: prints what it would do. --apply writes.
  * Running it again skips anything already done.
@@ -17,18 +19,20 @@
  * Usage:
  *   npx tsx scripts/tidy-ingredient-library.ts           # report only
  *   npx tsx scripts/tidy-ingredient-library.ts --apply   # write
+ *   add --reword to also reword lines (only straight after the build)
  */
 
 import { config } from 'dotenv';
 config({ path: '.env.local' });
 
-import { readdirSync, readFileSync } from 'fs';
+import { readdirSync, readFileSync, writeFileSync } from 'fs';
 import { createClient } from '@supabase/supabase-js';
 import { parseIngredientName, type Aisle } from '../src/lib/ingredientMatch';
 import { IngredientService } from '../src/lib/supabase/services/IngredientService';
 import type { IngredientGroup } from '../src/types/recipe';
 
 const apply = process.argv.includes('--apply');
+const reword = process.argv.includes('--reword');
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 const OUT = 'scripts/output';
 
@@ -59,6 +63,51 @@ const TIDY: Record<string, string> = {
   'Tandoori': 'Tandoori spice paste',
   'Can of coke': 'Coke',
   'Lean lamb': 'Lamb mince',
+
+  // Second pass: the same thing to buy, checked against each recipe's wording
+  'Cinnamon': 'Ground cinnamon',
+  'Cumin': 'Ground cumin',
+  'Ground tumeric': 'Turmeric',
+  'Turmeric': 'Ground turmeric',
+  'Cayenne': 'Cayenne pepper',
+  'Chinese 5 spice': 'Five-spice powder',
+  'Sweet smoked paprika': 'Smoked paprika',
+  'Pepper': 'Black pepper',
+  'Ground black pepper': 'Black pepper',
+  'Coriander leave': 'Coriander',
+  'Parsley leave': 'Parsley',
+  'Flat leaf parsley': 'Parsley',
+  'Thyme sprig': 'Thyme',
+  'Flour': 'Plain flour',
+  'Sugar': 'Granulated sugar',
+  'Brown sugar': 'Light brown sugar',
+  'Soft brown sugar': 'Light brown sugar',
+  'Soft light brown sugar': 'Light brown sugar',
+  'Oat': 'Porridge oat',
+  'Cornstarch': 'Cornflour',
+  'Ketchup': 'Tomato ketchup',
+  'Tomato paste': 'Tomato puree',
+  'Tinned plum tomato': 'Tinned tomato',
+  'Light soy sauce': 'Soy sauce',
+  'Rice wine vinegar': 'Rice vinegar',
+  'White rice vinegar': 'Rice vinegar',
+  'Beef stock cube': 'Beef stock',
+  'Chicken stock cube': 'Chicken stock',
+  'Vegetable stock cube': 'Vegetable stock',
+  'Oil': 'Vegetable oil',
+  'Cheese': 'Cheddar cheese',
+  'Manchego cheese': 'Manchego',
+  'Semi-skimmed milk': 'Milk',
+  'Yoghurt': 'Natural yoghurt',
+  'Garlic bulb': 'Garlic',
+  'Closed cup mushroom': 'Mushroom',
+  'Pea': 'Frozen pea',
+  'Mince beef': 'Beef mince',
+  'Celery stick': 'Celery',
+  'Raw tiger prawns with shell': 'Raw tiger prawn',
+  'Easy cook long grain white rice': 'Long grain rice',
+  'Roasted red pepper from a jar': 'Roasted red pepper',
+  'Spaghetti/vermicelli noodle': 'Vermicelli noodle',
 };
 
 const AISLE: Record<string, Aisle> = {
@@ -90,6 +139,13 @@ const AISLE: Record<string, Aisle> = {
   'Frozen pea': 'frozen',
   'Shop bought pizza base': 'bakery',
   'Coke': 'drinks',
+  'Dried apricot': 'cupboard',
+  'Dried cranberry': 'cupboard',
+  'Mixed seed': 'cupboard',
+  'Baking powder': 'cupboard',
+  'Roasted red pepper': 'cupboard',
+  'Tomato and chilli chutney': 'cupboard',
+  'Nutmeg': 'herbs-spices',
 };
 const STAPLES = ['Water'];
 
@@ -109,6 +165,18 @@ async function main() {
   const { data: rows, error } = await supabase.from('ingredients').select('id, name, category, is_staple');
   if (error) throw error;
   const byName = new Map((rows as Entry[]).map((e) => [e.name.toLowerCase(), e]));
+
+  if (apply) {
+    // Everything this can change, so a merge can be undone by hand
+    const [{ data: aliases }, { data: links }, { data: recipes }] = await Promise.all([
+      supabase.from('ingredient_aliases').select('*'),
+      supabase.from('recipe_ingredients').select('*'),
+      supabase.from('recipes').select('id, uid, ingredient_groups'),
+    ]);
+    const file = `${OUT}/tidy-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    writeFileSync(file, JSON.stringify({ ingredients: rows, aliases, recipe_ingredients: links, recipes }, null, 2));
+    console.log(`Backup: ${file}\n`);
+  }
 
   // ── Merge and rename ──
   console.log('Merge and rename');
@@ -150,11 +218,13 @@ async function main() {
   }
 
   // ── Reword lines from their original wording ──
-  console.log('\nRecipe lines reworded');
   const backups = readdirSync(OUT).filter((f) => f.startsWith('backup-ingredient-groups-')).sort();
-  if (!backups.length) {
-    console.log('  No backup found in scripts/output, so lines keep their current wording.');
+  if (!reword) {
+    // Lines left as they are (see --reword)
+  } else if (!backups.length) {
+    console.log('\nNo backup found in scripts/output, so lines keep their current wording.');
   } else {
+    console.log('\nRecipe lines reworded');
     const backup = new Map(
       (JSON.parse(readFileSync(`${OUT}/${backups[backups.length - 1]}`, 'utf8')) as { id: string; ingredient_groups: IngredientGroup[] }[]).map((r) => [r.id, r.ingredient_groups])
     );

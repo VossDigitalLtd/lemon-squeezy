@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, GitMerge, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import Link from 'next/link';
+import { Check, ChevronDown, GitMerge, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -11,6 +12,7 @@ import { useToast } from '@/lib/toast/context';
 import { AISLES, AISLE_LABELS, type Aisle } from '@/lib/ingredientMatch';
 import { cn } from '@/utils/cn';
 import type { LibraryIngredient } from '@/types/recipe';
+import type { IngredientUse } from '@/lib/supabase/services/IngredientService';
 
 type Show = 'all' | 'unused' | 'staples';
 
@@ -25,6 +27,23 @@ export default function IngredientsAdminPage() {
   const [newName, setNewName] = useState('');
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
   const [merging, setMerging] = useState<LibraryIngredient | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const [uses, setUses] = useState<Record<string, IngredientUse[] | 'loading' | 'error'>>({});
+
+  async function toggleUses(id: string) {
+    if (open === id) return setOpen(null);
+    setOpen(id);
+    if (Array.isArray(uses[id])) return;
+    setUses((u) => ({ ...u, [id]: 'loading' }));
+    try {
+      const res = await fetch(`/api/ingredients/${id}`, { cache: 'no-store' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setUses((u) => ({ ...u, [id]: json.data }));
+    } catch {
+      setUses((u) => ({ ...u, [id]: 'error' }));
+    }
+  }
 
   async function load() {
     try {
@@ -199,9 +218,20 @@ export default function IngredientsAdminPage() {
                     Staple
                   </label>
 
-                  <span className={cn('text-sm tabular-nums', item.recipe_count ? 'text-muted-foreground' : 'text-viz-attention')}>
-                    {item.recipe_count ? `${item.recipe_count} recipe${item.recipe_count === 1 ? '' : 's'}` : 'Not used'}
-                  </span>
+                  {item.recipe_count ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleUses(item.id)}
+                      aria-expanded={open === item.id}
+                      aria-controls={`uses-${item.id}`}
+                      className="inline-flex items-center gap-1 justify-self-start text-sm tabular-nums text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      {item.recipe_count} recipe{item.recipe_count === 1 ? '' : 's'}
+                      <ChevronDown size={13} className={cn('transition-transform', open === item.id && 'rotate-180')} />
+                    </button>
+                  ) : (
+                    <span className="text-sm text-viz-attention">Not used</span>
+                  )}
 
                   <div className="flex justify-end gap-1">
                     <Button type="button" variant="ghost" size="sm" onClick={() => setMerging(item)} title="Merge into another ingredient">
@@ -213,6 +243,27 @@ export default function IngredientsAdminPage() {
                       </Button>
                     )}
                   </div>
+
+                  {open === item.id && (
+                    <div id={`uses-${item.id}`} className="rounded-lg bg-muted/50 px-3 py-2 text-sm sm:col-span-5">
+                      {uses[item.id] === 'loading' || !uses[item.id] ? (
+                        <p className="text-muted-foreground">Loading…</p>
+                      ) : uses[item.id] === 'error' ? (
+                        <p className="text-destructive">Couldn&rsquo;t load the recipes.</p>
+                      ) : (
+                        <ul className="divide-y divide-border/60">
+                          {(uses[item.id] as IngredientUse[]).map((r) => (
+                            <li key={r.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-1.5">
+                              <Link href={`/admin/recipe/${r.id}/edit`} className="font-medium hover:underline">
+                                {r.title}
+                              </Link>
+                              <span className="text-muted-foreground">{r.lines.join(' · ')}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -231,6 +282,7 @@ export default function IngredientsAdminPage() {
             );
             addToast(`Merged ${merging.name} into ${into.name} (${recipes} recipe${recipes === 1 ? '' : 's'} updated)`, 'success');
             setMerging(null);
+            setUses({});
             load();
           }}
         />
