@@ -51,6 +51,13 @@ export function MethodCheckPanel({ ingredients, method, links, onChange }: Metho
     });
   }
 
+  /** Add the typed words as a correction, then clear the box */
+  function link(ids: string[]) {
+    addPhrase(phrase, ids);
+    setPhrase('');
+    setPicked([]);
+  }
+
   if (!options.length || !steps.length) return null;
   const allGood = !check.unmentioned.length && !check.ambiguous.length;
 
@@ -155,18 +162,17 @@ export function MethodCheckPanel({ ingredients, method, links, onChange }: Metho
       {/* Add a correction */}
       <div className="mt-4 border-t border-border pt-4">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Link words in the method</h4>
-        <form
-          className="mt-2 space-y-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            addPhrase(phrase, picked);
-            setPhrase('');
-            setPicked([]);
-          }}
-        >
+        {/* Not a <form>: this sits inside the recipe form */}
+        <div className="mt-2 space-y-2">
           <Input
             value={phrase}
             onChange={(e) => setPhrase(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter adds the link rather than saving the recipe
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              if (phrase.trim() && picked.length) link(picked);
+            }}
             placeholder='Words as written in the method, e.g. "the spices"'
             className="h-8 text-sm"
             aria-label="Words in the method"
@@ -184,14 +190,14 @@ export function MethodCheckPanel({ ingredients, method, links, onChange }: Metho
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <Button type="submit" size="sm" disabled={!phrase.trim() || !picked.length}>
+            <Button type="button" size="sm" disabled={!phrase.trim() || !picked.length} onClick={() => link(picked)}>
               <Plus size={12} /> Link
             </Button>
-            <Button type="button" variant="ghost" size="sm" disabled={!phrase.trim()} onClick={() => (addPhrase(phrase, []), setPhrase(''), setPicked([]))}>
+            <Button type="button" variant="ghost" size="sm" disabled={!phrase.trim()} onClick={() => link([])}>
               Not an ingredient
             </Button>
           </div>
-        </form>
+        </div>
       </div>
 
       {/* Corrections so far */}
