@@ -35,6 +35,15 @@ export async function DELETE() {
     //   metadata: { email: user.email } }) here
 
     const adminClient = createAdminClient();
+
+    // Remove the user's recipe box explicitly rather than relying on a
+    // favourites → auth.users cascade, which the live table may not have.
+    const { error: favError } = await adminClient.from('favourites').delete().eq('user_id', user.id);
+    if (favError) {
+      console.error('DELETE /api/profile favourites error:', favError);
+      return apiError('Failed to delete account. Please try again.', 500);
+    }
+
     const { error } = await adminClient.auth.admin.deleteUser(user.id);
 
     if (error) {

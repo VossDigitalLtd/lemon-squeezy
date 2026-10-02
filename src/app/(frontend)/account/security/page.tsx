@@ -3,6 +3,8 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { ShieldCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AccountPageHeader, AccountSection, FormError, FormField, pillButton } from '@/components/account/AccountUI';
+import { cn } from '@/utils/cn';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { PASSWORD_RULES, validatePassword } from '@/lib/utils/password';
 import {
@@ -131,7 +133,7 @@ export default function AccountSecurityPage() {
     setMfaFactorId(enrollFactorId);
     setEnrollOpen(false);
     setEnrollFactorId('');
-    addToast('Two-factor authentication enabled.', 'success');
+    addToast('Two-factor sign-in is on.', 'success');
     setEnrolling(false);
   };
 
@@ -145,7 +147,7 @@ export default function AccountSecurityPage() {
     } else {
       setMfaFactorId(null);
       setDisableOpen(false);
-      addToast('Two-factor authentication disabled.', 'success');
+      addToast('Two-factor sign-in is off.', 'success');
     }
     setDisabling(false);
   };
@@ -158,98 +160,90 @@ export default function AccountSecurityPage() {
     if (error) {
       addToast(error.message ?? 'Failed to sign out other sessions.', 'error');
     } else {
-      addToast('All other sessions have been signed out.', 'success');
+      addToast('Signed out of all other devices.', 'success');
     }
     setSigningOutOthers(false);
   };
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Security</h1>
-        <p className="text-muted-foreground mt-1">Manage your password, two-factor authentication, and active sessions.</p>
-      </div>
+      <AccountPageHeader title="Security" intro="Keep your account safe. You won't need these often." />
 
-      {/* Password */}
-      <div className="bg-card rounded-xl border border-border shadow-card p-6 mb-6">
-        <h2 className="text-sm font-medium text-foreground mb-4">Change password</h2>
-        <form onSubmit={handlePasswordChange} className="space-y-4">
-          {passwordError && (
-            <div className="rounded-md bg-red-50 p-3">
-              <p className="text-sm text-red-700">{passwordError}</p>
-            </div>
-          )}
-          <div className="space-y-1">
-            <label htmlFor="newPassword" className="block text-sm font-medium text-foreground">New password</label>
-            <PasswordInput id="newPassword" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
-            {newPassword.length > 0 && (
-              <ul className="mt-2 space-y-1">
-                {PASSWORD_RULES.map((rule) => {
-                  const met = rule.test(newPassword);
-                  return (
-                    <li key={rule.id} className={`flex items-center gap-1.5 text-xs ${met ? 'text-green-600' : 'text-muted-foreground'}`}>
-                      <Check size={11} className={met ? 'opacity-100' : 'opacity-30'} />
-                      {rule.label}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">Confirm new password</label>
-            <PasswordInput id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
-          </div>
-          <Button type="submit" disabled={passwordSaving || !newPassword || !confirmPassword} className="w-full sm:w-auto">
-            {passwordSaving ? 'Updating...' : 'Update password'}
-          </Button>
-        </form>
-      </div>
-
-      {/* 2FA */}
-      <div className="bg-card rounded-xl border border-border shadow-card p-6 mb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-              <ShieldCheck size={16} className={mfaFactorId ? 'text-green-600' : 'text-muted-foreground'} />
-            </div>
-            <div>
-              <h2 className="text-sm font-medium text-foreground">Two-factor authentication</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {mfaFactorId
-                  ? 'Enabled — your account is protected with an authenticator app.'
-                  : 'Add an extra layer of security using an authenticator app.'}
-              </p>
-            </div>
-          </div>
-          {!mfaLoading && (
-            <div className="flex-shrink-0">
-              {mfaFactorId ? (
-                <Button variant="outline" size="sm" onClick={() => setDisableOpen(true)}>Disable</Button>
-              ) : (
-                <Button size="sm" onClick={handleStartEnroll}>Enable</Button>
+      <div className="grid gap-6">
+        {/* Password */}
+        <AccountSection title="Password" description="Choose a new password. You'll stay signed in on this device.">
+          <form onSubmit={handlePasswordChange} className="grid max-w-md gap-5">
+            {passwordError && <FormError>{passwordError}</FormError>}
+            <FormField label="New password" htmlFor="newPassword">
+              <PasswordInput id="newPassword" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+              {newPassword.length > 0 && (
+                <ul className="mt-1.5 grid gap-1">
+                  {PASSWORD_RULES.map((rule) => {
+                    const met = rule.test(newPassword);
+                    return (
+                      <li key={rule.id} className={cn('flex items-center gap-1.5 text-[0.8125rem]', met ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground')}>
+                        <Check size={13} className={met ? 'opacity-100' : 'opacity-30'} />
+                        {rule.label}
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
+            </FormField>
+            <FormField label="Confirm new password" htmlFor="confirmPassword">
+              <PasswordInput id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+            </FormField>
+            <div>
+              <button type="submit" disabled={passwordSaving || !newPassword || !confirmPassword} className={cn(pillButton.base, pillButton.primary)}>
+                {passwordSaving ? 'Updating…' : 'Update password'}
+              </button>
             </div>
-          )}
-        </div>
-      </div>
+          </form>
+        </AccountSection>
 
-      {/* Sessions */}
-      <div className="bg-card rounded-xl border border-border shadow-card p-6">
-        <h2 className="text-sm font-medium text-foreground mb-1">Active sessions</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Sign out of all other devices where your account is currently logged in.
-        </p>
-        <Button variant="outline" onClick={handleSignOutOthers} disabled={signingOutOthers} className="w-full sm:w-auto">
-          {signingOutOthers ? 'Signing out...' : 'Sign out all other devices'}
-        </Button>
+        {/* 2FA */}
+        <AccountSection
+          title="Two-factor sign-in"
+          description={
+            mfaFactorId ? (
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck size={16} className="text-green-700 dark:text-green-400" />
+                On. Signing in also asks for a code from your authenticator app.
+              </span>
+            ) : (
+              'Ask for a code from an authenticator app as well as your password when you sign in.'
+            )
+          }
+          action={
+            !mfaLoading &&
+            (mfaFactorId ? (
+              <button type="button" onClick={() => setDisableOpen(true)} className={cn(pillButton.base, pillButton.outline)}>
+                Turn off
+              </button>
+            ) : (
+              <button type="button" onClick={handleStartEnroll} className={cn(pillButton.base, pillButton.primary)}>
+                Turn on
+              </button>
+            ))
+          }
+        />
+
+        {/* Sessions */}
+        <AccountSection
+          title="Other devices"
+          description="Signed in somewhere you no longer use, like an old phone or a shared computer? Sign out everywhere except here."
+        >
+          <button type="button" onClick={handleSignOutOthers} disabled={signingOutOthers} className={cn(pillButton.base, pillButton.outline)}>
+            {signingOutOthers ? 'Signing out…' : 'Sign out of other devices'}
+          </button>
+        </AccountSection>
       </div>
 
       {/* 2FA Enrollment dialog */}
       <Dialog open={enrollOpen} onOpenChange={(open) => { if (!open) handleEnrollClose(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Set up two-factor authentication</DialogTitle>
+            <DialogTitle>Turn on two-factor sign-in</DialogTitle>
             <DialogDescription>
               {enrollStep === 1
                 ? 'Scan this QR code with your authenticator app (e.g. Google Authenticator, Authy).'
@@ -274,11 +268,7 @@ export default function AccountSecurityPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {enrollError && (
-                <div className="rounded-md bg-red-50 p-3">
-                  <p className="text-sm text-red-700">{enrollError}</p>
-                </div>
-              )}
+              {enrollError && <FormError>{enrollError}</FormError>}
               <input
                 type="text"
                 inputMode="numeric"
@@ -298,7 +288,7 @@ export default function AccountSecurityPage() {
               <Button onClick={() => setEnrollStep(2)}>Continue</Button>
             ) : (
               <Button onClick={handleVerifyEnroll} disabled={enrolling || enrollCode.length !== 6}>
-                {enrolling ? 'Verifying...' : 'Verify & enable'}
+                {enrolling ? 'Checking…' : 'Turn on'}
               </Button>
             )}
           </DialogFooter>
@@ -309,15 +299,15 @@ export default function AccountSecurityPage() {
       <Dialog open={disableOpen} onOpenChange={setDisableOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Disable two-factor authentication</DialogTitle>
+            <DialogTitle>Turn off two-factor sign-in?</DialogTitle>
             <DialogDescription>
-              This will remove the extra layer of security from your account. Are you sure?
+              You&rsquo;ll only need your password to sign in. You can turn it back on at any time.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="ghost" onClick={() => setDisableOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDisable} disabled={disabling}>
-              {disabling ? 'Disabling...' : 'Disable 2FA'}
+              {disabling ? 'Turning off…' : 'Turn off'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -28,7 +28,13 @@ export interface AccountNavLink {
   label: string;
 }
 
-export const ACCOUNT_NAV_LINKS: AccountNavLink[] = [];
+export const ACCOUNT_NAV_LINKS: AccountNavLink[] = [
+  { href: '/account', label: 'Overview' },
+  { href: '/account/recipe-box', label: 'Recipe box' },
+  { href: '/account/profile', label: 'Profile' },
+  { href: '/account/security', label: 'Security' },
+  { href: '/account/data', label: 'Data & privacy' },
+];
 
 export const FRONTEND_NAV_LINKS: AccountNavLink[] = [
   { href: '/recipes', label: 'Recipes' },

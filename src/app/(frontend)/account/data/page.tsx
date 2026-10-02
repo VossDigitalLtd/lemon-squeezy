@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/dialog';
 import { useAuth } from '@/lib/supabase/auth';
 import { useToast } from '@/hooks/useToast';
+import { AccountPageHeader, AccountSection, FormError, pillButton } from '@/components/account/AccountUI';
+import { cn } from '@/utils/cn';
 
 export default function AccountDataPage() {
   const { user } = useAuth();
@@ -60,45 +62,33 @@ export default function AccountDataPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Data & Privacy</h1>
-        <p className="text-muted-foreground mt-1">Download a copy of your data or permanently delete your account.</p>
-      </div>
+      <AccountPageHeader title="Data & privacy" intro="Your information is yours. Take a copy, or delete your account." />
 
-      {/* Export */}
-      <div className="bg-card rounded-xl border border-border shadow-card p-6 mb-6">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="mt-0.5 h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-            <Download size={16} className="text-muted-foreground" />
-          </div>
-          <div>
-            <h2 className="text-sm font-medium text-foreground">Download your data</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Get a copy of your account information as a JSON file.
-            </p>
-          </div>
-        </div>
-        <Button variant="outline" onClick={handleDownload} disabled={downloading} className="w-full sm:w-auto">
-          {downloading ? 'Preparing...' : 'Download data'}
-        </Button>
-      </div>
+      <div className="grid gap-6">
+        <AccountSection
+          title="Download your data"
+          description="A copy of your account details and saved recipes, as a JSON file."
+        >
+          <button type="button" onClick={handleDownload} disabled={downloading} className={cn(pillButton.base, pillButton.outline)}>
+            <Download size={16} />
+            {downloading ? 'Preparing…' : 'Download my data'}
+          </button>
+        </AccountSection>
 
-      {/* Delete account */}
-      <div className="bg-card rounded-xl border border-destructive/40 shadow-card p-6">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="mt-0.5 h-8 w-8 rounded-lg bg-destructive/10 flex items-center justify-center flex-shrink-0">
-            <TriangleAlert size={16} className="text-destructive" />
-          </div>
-          <div>
-            <h2 className="text-sm font-medium text-foreground">Delete account</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Permanently delete your account and all associated data. This cannot be undone.
-            </p>
-          </div>
-        </div>
-        <Button variant="destructive" onClick={() => { setDeleteOpen(true); setDeleteConfirm(''); setDeleteError(null); }} className="w-full sm:w-auto">
-          Delete account
-        </Button>
+        <AccountSection
+          tone="danger"
+          title="Delete your account"
+          description="Permanently removes your account, profile and recipe box. This can't be undone."
+        >
+          <button
+            type="button"
+            onClick={() => { setDeleteOpen(true); setDeleteConfirm(''); setDeleteError(null); }}
+            className={cn(pillButton.base, pillButton.danger)}
+          >
+            <TriangleAlert size={16} />
+            Delete account
+          </button>
+        </AccountSection>
       </div>
 
       {/* Delete confirmation dialog */}
@@ -112,16 +102,13 @@ export default function AccountDataPage() {
           </DialogHeader>
 
           <div className="space-y-3">
-            {deleteError && (
-              <div className="rounded-md bg-red-50 p-3">
-                <p className="text-sm text-red-700">{deleteError}</p>
-              </div>
-            )}
+            {deleteError && <FormError>{deleteError}</FormError>}
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-foreground">
+              <label htmlFor="deleteConfirm" className="block text-sm font-medium text-foreground">
                 Type <span className="font-mono">{user?.email}</span> to confirm
               </label>
               <Input
+                id="deleteConfirm"
                 value={deleteConfirm}
                 onChange={(e) => setDeleteConfirm(e.target.value)}
                 placeholder={user?.email ?? ''}
