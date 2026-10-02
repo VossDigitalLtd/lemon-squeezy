@@ -10,6 +10,7 @@ import {
   ArrowUpRight,
   ExternalLink,
   Globe,
+  BarChart3,
   type LucideIcon,
 } from 'lucide-react';
 import { useAdminRole } from '@/app/admin/context';
@@ -187,6 +188,12 @@ export default function AdminDashboard() {
               icon={Users}
             />
           )}
+          <QuickAction
+            title="Reports"
+            description="Saves, members, and a to-do list of recipes missing photos or times."
+            href="/admin/reports"
+            icon={BarChart3}
+          />
           <QuickAction
             title="View the site"
             description="See the homepage and recipes as visitors do."
