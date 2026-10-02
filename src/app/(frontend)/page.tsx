@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Heart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { RecipeService, CategoryService, FavouriteService } from '@/lib/supabase/services';
 import { LogoTimer, LaceBand } from '@/components/brand';
@@ -10,7 +10,7 @@ import { FavouriteButton } from '@/components/recipe/FavouriteButton';
 import { ShuffleBand } from '@/components/home/ShuffleBand';
 import { getImageUrl } from '@/lib/recipes';
 import { bucketByTime, formatMinutesLong, formatMinutesShort } from '@/lib/time';
-import { APP_NAME, APP_DESCRIPTION } from '@/lib/config/app';
+import { APP_NAME, APP_DESCRIPTION, features } from '@/lib/config/app';
 import type { Metadata } from 'next';
 import type { RecipeSummary } from '@/types/recipe';
 
@@ -57,8 +57,9 @@ export default async function HomePage() {
   const cypriotLead = cypriot.find((r) => r.feature_image_path);
   const cypriotRest = cypriot.filter((r) => r.id !== cypriotLead?.id).slice(0, 4);
 
-  const heart = (r: RecipeSummary) =>
-    user ? <FavouriteHeart recipeId={r.id} recipeTitle={r.title} initialFavourited={favouriteIds.has(r.id)} /> : undefined;
+  const heart = (r: RecipeSummary) => (
+    <FavouriteHeart recipeId={r.id} recipeTitle={r.title} initialFavourited={favouriteIds.has(r.id)} isLoggedIn={!!user} />
+  );
 
   return (
     <>
@@ -116,7 +117,7 @@ export default async function HomePage() {
               >
                 Get the recipe <ArrowRight size={17} />
               </Link>
-              <FavouriteButton recipeId={featured.id} initialFavourited={favouriteIds.has(featured.id)} isLoggedIn={!!user} className="h-12" />
+              <FavouriteButton recipeId={featured.id} recipeTitle={featured.title} initialFavourited={favouriteIds.has(featured.id)} isLoggedIn={!!user} className="h-12" />
             </div>
           </div>
         </section>
@@ -225,6 +226,41 @@ export default async function HomePage() {
             </p>
           )}
         </Section>
+      )}
+
+      {/* ── Signed out: invite people to start a recipe box ── */}
+      {!user && (
+        <section aria-labelledby="box-promo-title" className="mx-auto max-w-7xl px-4 pt-18 sm:px-8">
+          <div className="grid items-center gap-6 rounded-3xl bg-brand-muted p-8 sm:grid-cols-[auto_1fr_auto] sm:gap-8 sm:p-10">
+            <span className="grid size-16 place-items-center rounded-full bg-card text-red-600 shadow-card dark:text-red-400">
+              <Heart size={28} className="fill-current" />
+            </span>
+            <div>
+              <h2 id="box-promo-title" className="font-display text-[clamp(1.75rem,3vw,2.25rem)] leading-tight">
+                Keep the recipes you love
+              </h2>
+              <p className="mt-1.5 max-w-xl text-muted-foreground">
+                Tap the heart on any recipe to save it to your own recipe box, ready on any device. It&rsquo;s free.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {features.signup && (
+                <Link
+                  href="/signup?next=%2F"
+                  className="inline-flex h-12 items-center rounded-full bg-primary px-6 font-medium text-primary-foreground transition hover:brightness-95"
+                >
+                  Create a free account
+                </Link>
+              )}
+              <Link
+                href="/login?next=%2F"
+                className="inline-flex h-12 items-center rounded-full border border-border bg-card px-6 font-medium transition hover:border-foreground"
+              >
+                Sign in
+              </Link>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* ── Kopiaste: Cypriot recipes ── */}

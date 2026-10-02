@@ -265,15 +265,14 @@ export default function RecipeListClient({
                   priority={i < 3}
                   sizes="(min-width: 1280px) 25vw, (min-width: 640px) 40vw, 100vw"
                   action={
-                    isLoggedIn ? (
-                      <FavouriteHeart
-                        recipeId={recipe.id}
-                        recipeTitle={recipe.title}
-                        initialFavourited={localFavourites.has(recipe.id)}
-                        favourited={localFavourites.has(recipe.id)}
-                        onToggle={() => handleToggleFavourite(recipe.id)}
-                      />
-                    ) : undefined
+                    <FavouriteHeart
+                      recipeId={recipe.id}
+                      recipeTitle={recipe.title}
+                      initialFavourited={localFavourites.has(recipe.id)}
+                      favourited={localFavourites.has(recipe.id)}
+                      onToggle={isLoggedIn ? () => handleToggleFavourite(recipe.id) : undefined}
+                      isLoggedIn={isLoggedIn}
+                    />
                   }
                 />
               ))}

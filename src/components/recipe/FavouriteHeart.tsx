@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Heart } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { SaveRecipeDialog } from './SaveRecipeDialog';
 
 interface FavouriteHeartProps {
   recipeId: string;
@@ -11,6 +12,8 @@ interface FavouriteHeartProps {
   /** Controlled mode: the parent owns the state and the request */
   favourited?: boolean;
   onToggle?: () => void;
+  /** Signed out: the heart still shows, and explains how to save */
+  isLoggedIn?: boolean;
 }
 
 /**
@@ -18,12 +21,24 @@ interface FavouriteHeartProps {
  * Uncontrolled by default: flips straight away, reverts if the request fails.
  * Pass `favourited` + `onToggle` when a parent tracks favourites itself.
  */
-export function FavouriteHeart({ recipeId, recipeTitle, initialFavourited, favourited, onToggle }: FavouriteHeartProps) {
+export function FavouriteHeart({
+  recipeId,
+  recipeTitle,
+  initialFavourited,
+  favourited,
+  onToggle,
+  isLoggedIn = true,
+}: FavouriteHeartProps) {
   const [ownFav, setIsFav] = useState(initialFavourited);
   const [busy, setBusy] = useState(false);
-  const isFav = favourited ?? ownFav;
+  const [promptOpen, setPromptOpen] = useState(false);
+  const isFav = isLoggedIn && (favourited ?? ownFav);
 
   async function toggle() {
+    if (!isLoggedIn) {
+      setPromptOpen(true);
+      return;
+    }
     if (onToggle) {
       onToggle();
       return;
@@ -41,18 +56,23 @@ export function FavouriteHeart({ recipeId, recipeTitle, initialFavourited, favou
   }
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={busy}
-      aria-pressed={isFav}
-      aria-label={isFav ? `Remove ${recipeTitle} from your recipe box` : `Save ${recipeTitle} to your recipe box`}
-      className={cn(
-        'grid size-10 place-items-center rounded-full bg-card/90 shadow-card backdrop-blur transition-transform hover:scale-110',
-        isFav ? 'text-red-600 dark:text-red-400' : 'text-foreground'
+    <>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={busy}
+        aria-pressed={isLoggedIn ? isFav : undefined}
+        aria-label={isFav ? `Remove ${recipeTitle} from your recipe box` : `Save ${recipeTitle} to your recipe box`}
+        className={cn(
+          'grid size-10 place-items-center rounded-full bg-card/90 shadow-card backdrop-blur transition-transform hover:scale-110',
+          isFav ? 'text-red-600 dark:text-red-400' : 'text-foreground'
+        )}
+      >
+        <Heart size={18} className={cn(isFav && 'fill-current')} />
+      </button>
+      {!isLoggedIn && (
+        <SaveRecipeDialog open={promptOpen} onOpenChange={setPromptOpen} recipeId={recipeId} recipeTitle={recipeTitle} />
       )}
-    >
-      <Heart size={18} className={cn(isFav && 'fill-current')} />
-    </button>
+    </>
   );
 }

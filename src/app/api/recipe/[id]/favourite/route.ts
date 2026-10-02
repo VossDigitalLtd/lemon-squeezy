@@ -29,3 +29,30 @@ export async function POST(
     return apiError('Internal server error', 500);
   }
 }
+
+/** PUT /api/recipe/[id]/favourite — save (idempotent; used after signing in to finish a save) */
+export async function PUT(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: recipeId } = await params;
+    const supabase = await createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return apiError('Unauthorised', 401);
+    }
+
+    const result = await FavouriteService.add(supabase, user.id, recipeId);
+
+    if (!result.success) {
+      return apiError(result.error || 'Failed to save favourite', 500);
+    }
+
+    return ok({ data: { favourited: true } });
+  } catch (error) {
+    console.error('PUT /api/recipe/[id]/favourite error:', error);
+    return apiError('Internal server error', 500);
+  }
+}

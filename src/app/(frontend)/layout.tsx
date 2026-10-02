@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { FrontendHeader } from '@/components/layouts/FrontendHeader';
 import { LogoMark } from '@/components/brand';
+import { PendingSaveHandler } from '@/components/recipe/PendingSaveHandler';
 import { FRONTEND_NAV_LINKS } from '@/lib/config/navigation';
 
 export default function FrontendLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <PendingSaveHandler />
       <FrontendHeader
         mobileLinks={FRONTEND_NAV_LINKS}
         nav={

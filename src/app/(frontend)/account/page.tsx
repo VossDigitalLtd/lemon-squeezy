@@ -28,7 +28,9 @@ export default async function AccountOverviewPage() {
   ]);
 
   const p = profile as Profile | null;
-  const firstName = p?.full_name?.trim().split(/\s+/)[0] || user?.email?.split('@')[0] || 'there';
+  // The profiles trigger stores the email as full_name when no name was given
+  const name = p?.full_name && !p.full_name.includes('@') ? p.full_name.trim() : '';
+  const firstName = name.split(/\s+/)[0] || user?.email?.split('@')[0] || 'there';
   const recent = favouritesResult.success ? favouritesResult.data! : [];
   const savedCount = idsResult.success ? idsResult.data!.length : recent.length;
 

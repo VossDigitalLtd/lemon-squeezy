@@ -147,7 +147,7 @@ export default async function RecipePage({ params }: PageProps) {
                 <ArrowDown size={17} />
                 Jump to recipe
               </a>
-              <FavouriteButton recipeId={recipe.id} initialFavourited={isFavourited} isLoggedIn={!!user} />
+              <FavouriteButton recipeId={recipe.id} recipeTitle={recipe.title} initialFavourited={isFavourited} isLoggedIn={!!user} />
               <CookModeButton />
             </div>
           </div>

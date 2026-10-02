@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Sun, Moon, Monitor, LogOut, User, Settings, Menu } from 'lucide-react';
 import { LogoMark } from '@/components/brand';
 import { APP_NAME, features } from '@/lib/config/app';
@@ -64,6 +65,7 @@ interface FrontendHeaderProps {
 export function FrontendHeader({ logoHref = '/', nav, mobileLinks }: FrontendHeaderProps) {
   const { user, isLoading } = useAuth();
   const { theme, setTheme } = useAppearanceSettings();
+  const pathname = usePathname();
 
   const cycleTheme = () => {
     const next = THEME_CYCLE[(THEME_CYCLE.indexOf(theme) + 1) % THEME_CYCLE.length];
@@ -135,7 +137,7 @@ export function FrontendHeader({ logoHref = '/', nav, mobileLinks }: FrontendHea
             <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
           ) : !user ? (
             <Link
-              href="/login"
+              href={pathname && pathname !== '/' ? `/login?next=${encodeURIComponent(pathname)}` : '/login?next=%2F'}
               className="text-sm font-medium text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-accent transition-colors"
             >
               Sign in

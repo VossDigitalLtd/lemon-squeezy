@@ -3,12 +3,15 @@
 import { useState } from 'react';
 import { Heart } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { SaveRecipeDialog } from './SaveRecipeDialog';
 
 interface FavouriteButtonProps {
   recipeId: string;
   initialFavourited: boolean;
-  /** When not logged in, hide the button entirely */
+  /** Signed out: the button still shows, and explains how to save */
   isLoggedIn: boolean;
+  /** Used in the "save to your recipe box" prompt for signed-out visitors */
+  recipeTitle: string;
   className?: string;
 }
 
@@ -16,14 +19,18 @@ export function FavouriteButton({
   recipeId,
   initialFavourited,
   isLoggedIn,
+  recipeTitle,
   className,
 }: FavouriteButtonProps) {
   const [isFav, setIsFav] = useState(initialFavourited);
   const [isLoading, setIsLoading] = useState(false);
-
-  if (!isLoggedIn) return null;
+  const [promptOpen, setPromptOpen] = useState(false);
 
   async function handleToggle() {
+    if (!isLoggedIn) {
+      setPromptOpen(true);
+      return;
+    }
     setIsLoading(true);
     setIsFav((prev) => !prev); // optimistic
 
@@ -43,6 +50,7 @@ export function FavouriteButton({
   }
 
   return (
+    <>
     <button
       type="button"
       onClick={handleToggle}
@@ -55,7 +63,7 @@ export function FavouriteButton({
         isLoading && 'opacity-60',
         className
       )}
-      aria-pressed={isFav}
+      aria-pressed={isLoggedIn ? isFav : undefined}
       aria-label={isFav ? 'Remove from your recipe box' : 'Save to your recipe box'}
     >
       <Heart
@@ -67,5 +75,9 @@ export function FavouriteButton({
       />
       <span>{isFav ? 'Saved' : 'Save'}</span>
     </button>
+    {!isLoggedIn && (
+      <SaveRecipeDialog open={promptOpen} onOpenChange={setPromptOpen} recipeId={recipeId} recipeTitle={recipeTitle} />
+    )}
+    </>
   );
 }
