@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 // The 12 rays from public/logo-icon.svg, in its 180×180 viewBox.
 // Drawn with currentColor so they follow the text colour (black in light
 // mode, white in dark mode, like logo-icon-dark.svg).
@@ -27,5 +29,29 @@ export function LogoRays() {
         <path key={d} d={d} />
       ))}
     </g>
+  );
+}
+
+interface RaysOverYellowProps {
+  /** SVG shape(s) of the yellow area, e.g. the logo segment or a timer wedge */
+  yellow: React.ReactNode;
+}
+
+/**
+ * The rays in currentColor, re-drawn in dark ink wherever they cross the
+ * yellow. In light mode both layers are black (no visible change); in dark
+ * mode the rays are white on the background but stay dark on the yellow,
+ * where white would disappear.
+ */
+export function RaysOverYellow({ yellow }: RaysOverYellowProps) {
+  const id = `yellow-${useId().replace(/:/g, '')}`;
+  return (
+    <>
+      <clipPath id={id}>{yellow}</clipPath>
+      <LogoRays />
+      <g clipPath={`url(#${id})`} className="text-primary-foreground">
+        <LogoRays />
+      </g>
+    </>
   );
 }

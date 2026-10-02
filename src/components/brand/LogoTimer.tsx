@@ -1,6 +1,6 @@
 import { cn } from '@/utils/cn';
 import { timerWedgePath, formatMinutesLong } from '@/lib/time';
-import { LogoRays } from './LogoRays';
+import { RaysOverYellow } from './LogoRays';
 
 interface LogoTimerProps {
   /** Minutes to show. 60 or more fills the circle. */
@@ -32,7 +32,7 @@ export function LogoTimer({ minutes, label, className }: LogoTimerProps) {
       ) : (
         wedge && <path d={wedge} className="fill-primary" />
       )}
-      <LogoRays />
+      <RaysOverYellow yellow={wedge === null ? <circle cx="90" cy="90" r="90" /> : wedge ? <path d={wedge} /> : null} />
     </svg>
   );
 }

@@ -1,5 +1,5 @@
 import { cn } from '@/utils/cn';
-import { LogoRays, LOGO_SEGMENT_PATH } from './LogoRays';
+import { RaysOverYellow, LOGO_SEGMENT_PATH } from './LogoRays';
 
 interface LogoMarkProps {
   size?: number;
@@ -7,8 +7,9 @@ interface LogoMarkProps {
 }
 
 /**
- * The Lemon Squeezy icon drawn inline: yellow segment + rays in currentColor,
- * so it follows light/dark mode without separate image files.
+ * The Lemon Squeezy icon drawn inline: yellow segment + rays in currentColor
+ * (dark ink where they cross the yellow), so it works on light and dark
+ * backgrounds without separate image files.
  */
 export function LogoMark({ size = 44, className }: LogoMarkProps) {
   return (
@@ -20,7 +21,7 @@ export function LogoMark({ size = 44, className }: LogoMarkProps) {
       aria-hidden="true"
     >
       <path fill="#FDF032" d={LOGO_SEGMENT_PATH} />
-      <LogoRays />
+      <RaysOverYellow yellow={<path d={LOGO_SEGMENT_PATH} />} />
     </svg>
   );
 }
