@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { timerWedgePath, formatMinutesShort, formatMinutesLong, splitStepDurations } from '@/lib/time';
+import { timerWedgePath, formatMinutesShort, formatMinutesLong, splitStepDurations, bucketByTime } from '@/lib/time';
 import { convertUnit, getEquivalentUnit, displayIngredient } from '@/lib/units';
 import { splitSubtitle } from '@/lib/recipes';
 
@@ -106,5 +106,17 @@ describe('displayIngredient', () => {
   it('leaves items without a quantity alone', () => {
     const salt = { quantity: null, unit: null, name: 'Salt and pepper' };
     expect(displayIngredient(salt, 4, 8, 'imperial')).toEqual(salt);
+  });
+});
+
+describe('bucketByTime', () => {
+  const r = (title: string, total_time: number | null) => ({ title, total_time });
+
+  it('counts recipes cumulatively and takes examples from each band', () => {
+    const buckets = bucketByTime([r('Houmous', 10), r('Salmon', 15), r('Soup', 30), r('Pie', 90), r('Untimed', null)]);
+    expect(buckets.map((b) => b.count)).toEqual([2, 3, 3, 3]);
+    expect(buckets[0].examples.map((e) => e.title)).toEqual(['Houmous', 'Salmon']);
+    expect(buckets[1].examples.map((e) => e.title)).toEqual(['Soup']);
+    expect(buckets[2].examples).toEqual([]);
   });
 });

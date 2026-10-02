@@ -71,3 +71,32 @@ export function splitStepDurations(step: string): StepSegment[] {
   if (last < step.length) segments.push({ type: 'text', text: step.slice(last) });
   return segments;
 }
+
+// ─── "How long have you got?" buckets ───────────────────────────────────────
+
+export const TIME_BUCKETS = [15, 30, 45, 60] as const;
+
+export interface TimeBucket<T> {
+  minutes: number;
+  /** Recipes at or under this total time (matches /recipes?time=N) */
+  count: number;
+  /** A few recipes from this band only (over the previous bucket), for "Like …" */
+  examples: T[];
+}
+
+export function bucketByTime<T extends { total_time: number | null }>(
+  recipes: T[],
+  examplesPerBucket = 2
+): TimeBucket<T>[] {
+  return TIME_BUCKETS.map((minutes, i) => {
+    const lower = i === 0 ? 0 : TIME_BUCKETS[i - 1];
+    const timed = recipes.filter((r) => r.total_time != null && r.total_time > 0);
+    return {
+      minutes,
+      count: timed.filter((r) => r.total_time! <= minutes).length,
+      examples: timed
+        .filter((r) => r.total_time! > lower && r.total_time! <= minutes)
+        .slice(0, examplesPerBucket),
+    };
+  });
+}

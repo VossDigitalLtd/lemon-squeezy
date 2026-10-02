@@ -21,8 +21,9 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
           </nav>
         }
       />
-      <main className="flex-1">{children}</main>
-      <footer className="mt-20 bg-footer text-footer-foreground">
+      {/* A page can end on a full-bleed band ([data-flush-bottom]) that meets the footer */}
+      <main className="flex-1 pb-20 [&:has(>[data-flush-bottom]:last-child)]:pb-0">{children}</main>
+      <footer className="bg-footer text-footer-foreground">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 py-12 grid justify-items-center gap-6 text-center">
           <LogoMark size={52} className="text-footer-foreground" />
           <nav className="flex flex-wrap justify-center gap-6 text-[0.9375rem]" aria-label="Footer">

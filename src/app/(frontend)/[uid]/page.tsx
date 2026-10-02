@@ -60,7 +60,6 @@ export default async function RecipePage({ params }: PageProps) {
     ...recipe.dietary_categories,
   ];
   const course = recipe.course_categories[0];
-  const isCypriot = recipe.cuisine_categories.some((c) => c.uid === 'cypriot');
 
   // Check favourite status for logged-in users
   const { data: { user } } = await supabase.auth.getUser();
@@ -204,9 +203,7 @@ export default async function RecipePage({ params }: PageProps) {
         </>
       )}
 
-      {isCypriot && !recipe.accompanying_recipes.length && <LaceBand className="mt-20" />}
 
-      {/* JSON-LD */}
       <RecipeJsonLd recipe={recipe} imageUrl={imageUrl} />
     </>
   );
