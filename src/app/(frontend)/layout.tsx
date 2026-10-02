@@ -22,8 +22,11 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
           </nav>
         }
       />
-      {/* A page can end on a full-bleed band ([data-flush-bottom]) that meets the footer */}
-      <main className="flex flex-1 flex-col pb-20 [&:has(>[data-flush-bottom]:last-child)]:pb-0">{children}</main>
+      {/* A page can end on a full-bleed band ([data-flush-bottom]) that meets the footer.
+          flex-col lets a page band grow to fill the height (flex-1); children are
+          forced full width because centred mx-auto boxes otherwise shrink to fit
+          their content in a flex column (e.g. one search result). */}
+      <main className="flex flex-1 flex-col pb-20 [&>*]:w-full [&:has(>[data-flush-bottom]:last-child)]:pb-0">{children}</main>
       <footer className="bg-footer text-footer-foreground">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 py-12 grid justify-items-center gap-6 text-center">
           <LogoMark size={52} className="text-footer-foreground" />
