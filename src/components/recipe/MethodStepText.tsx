@@ -25,13 +25,17 @@ interface MethodStepTextProps {
 export function MethodStepText({ step, terms, links, amountFor, showAll, timers = true }: MethodStepTextProps) {
   const [open, setOpen] = useState<Set<number>>(() => new Set());
   let n = 0;
+  // With every amount showing, each ingredient's amount appears once per step
+  const shownOnce = new Set<string>();
 
   const linked = (text: string) =>
     linkStep(text, terms, links).map((part) => {
       const i = n++;
       const amount = part.ingredientIds ? amountFor(part.ingredientIds) : '';
       if (!amount) return <span key={i}>{part.text}</span>;
-      const shown = showAll || open.has(i);
+      const key = part.ingredientIds!.join('+');
+      const shown = open.has(i) || (showAll && !shownOnce.has(key));
+      if (showAll) shownOnce.add(key);
       return (
         <span key={i} className="whitespace-nowrap">
           <button
