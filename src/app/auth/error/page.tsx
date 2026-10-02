@@ -13,10 +13,10 @@ export default function AuthErrorPage() {
           </p>
         </div>
         <div className="space-y-4">
-          <Link href="/login" className="block text-primary hover:text-primary/80">
+          <Link href="/login" className="block font-medium text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:decoration-foreground">
             Try signing in
           </Link>
-          <Link href="/signup" className="block text-primary hover:text-primary/80">
+          <Link href="/signup" className="block font-medium text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:decoration-foreground">
             Create a new account
           </Link>
         </div>

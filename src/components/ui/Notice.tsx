@@ -110,9 +110,9 @@ export default function Notice({
       title: 'text-amber-900',
     },
     info: {
-      container: 'border-primary/30 text-primary bg-brand-muted',
-      icon: 'text-primary',
-      title: 'text-primary',
+      container: 'border-primary/50 text-foreground bg-brand-muted',
+      icon: 'text-foreground',
+      title: 'text-foreground',
     },
     success: {
       container: 'border-green-200 text-green-700 bg-green-50',

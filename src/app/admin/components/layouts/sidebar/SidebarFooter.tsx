@@ -51,7 +51,7 @@ export default function SidebarFooter({ isExpanded, showExpandToggle, user, onLo
               {profileAvatarUrl ? (
                 <Image src={profileAvatarUrl} alt="" width={28} height={28} className="h-full w-full object-cover" />
               ) : (
-                <span className="text-xs font-semibold text-white">{initials}</span>
+                <span className="text-xs font-semibold text-primary-foreground">{initials}</span>
               )}
             </div>
             {isExpanded && (

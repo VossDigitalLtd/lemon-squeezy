@@ -34,17 +34,17 @@ export default function IconButton({
   const getVariantClass = (): string => {
     switch (variant) {
       case 'ghost':
-        return 'text-gray-400 hover:text-primary hover:bg-gray-100';
+        return 'text-gray-400 hover:text-foreground hover:bg-gray-100';
       case 'ghost-danger':
         return 'text-gray-400 hover:text-red-600 hover:bg-red-50';
       case 'ghost-active':
-        return 'text-primary bg-brand-muted hover:bg-brand-muted';
+        return 'text-foreground bg-brand-muted hover:bg-brand-muted';
       case 'ghost-toggle':
         return active
-          ? 'text-primary bg-brand-muted hover:bg-brand-muted'
-          : 'text-gray-400 hover:text-primary hover:bg-gray-100';
+          ? 'text-foreground bg-brand-muted hover:bg-brand-muted'
+          : 'text-gray-400 hover:text-foreground hover:bg-gray-100';
       default:
-        return 'text-gray-400 hover:text-primary hover:bg-gray-100';
+        return 'text-gray-400 hover:text-foreground hover:bg-gray-100';
     }
   };
 

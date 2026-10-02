@@ -80,7 +80,7 @@ export default function Toast({ toast, onRemove }: ToastProps) {
           bg: 'bg-white',
           border: 'border-primary',
           icon: Info,
-          iconColor: 'text-primary',
+          iconColor: 'text-gray-900',
           progressBg: 'bg-primary',
           text: 'text-gray-900'
         };

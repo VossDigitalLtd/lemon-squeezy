@@ -118,7 +118,7 @@ function UserAvatar({ user }: { user: UserRow }) {
       {user.avatar_url ? (
         <Image src={user.avatar_url} alt="" width={32} height={32} className="h-full w-full object-cover" />
       ) : (
-        <span className="text-xs font-semibold text-white">{initials}</span>
+        <span className="text-xs font-semibold text-primary-foreground">{initials}</span>
       )}
     </div>
   );

@@ -21,7 +21,7 @@ function OptionButton({ isSelected, onClick, children }: OptionButtonProps) {
       className={cn(
         'flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-all',
         isSelected
-          ? 'border-primary bg-brand-muted text-primary dark:bg-primary/10 dark:text-primary'
+          ? 'border-primary bg-brand-muted text-foreground dark:bg-primary/10 dark:text-primary'
           : 'border-border bg-card text-muted-foreground hover:border-border hover:bg-accent'
       )}
     >

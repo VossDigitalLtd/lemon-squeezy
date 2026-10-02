@@ -33,12 +33,12 @@ function QuickAction({ title, description, href, icon: Icon }: QuickActionProps)
         <div className="h-10 w-10 bg-muted rounded-lg flex items-center justify-center group-hover:bg-brand-muted transition-colors">
           <Icon
             size={20}
-            className="text-muted-foreground group-hover:text-primary transition-colors"
+            className="text-muted-foreground group-hover:text-foreground transition-colors"
           />
         </div>
         <ArrowUpRight
           size={18}
-          className="text-muted-foreground group-hover:text-primary transition-colors mt-1"
+          className="text-muted-foreground group-hover:text-foreground transition-colors mt-1"
         />
       </div>
       <h3 className="font-semibold text-foreground mt-4 text-sm">{title}</h3>
@@ -57,8 +57,8 @@ interface StatCardProps {
 function StatCard({ title, value, icon: Icon, href }: StatCardProps) {
   const content = (
     <div className="bg-card rounded-xl border border-border p-6 shadow-card">
-      <div className="h-10 w-10 bg-muted rounded-lg flex items-center justify-center mb-4">
-        <Icon size={20} className="text-primary" />
+      <div className="h-10 w-10 bg-primary rounded-lg flex items-center justify-center mb-4">
+        <Icon size={20} className="text-primary-foreground" />
       </div>
       <p className="text-sm font-medium text-muted-foreground">{title}</p>
       <p className="text-3xl font-bold text-foreground mt-1">

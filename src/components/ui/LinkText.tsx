@@ -31,7 +31,7 @@ export default function LinkText({
   const baseStyles = 'inline-flex items-center gap-1 transition-colors duration-200 hover:underline';
 
   const variants: Record<LinkTextVariant, string> = {
-    primary: 'text-primary hover:text-primary/80',
+    primary: 'text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:decoration-foreground',
     secondary: 'text-gray-600 hover:text-gray-800',
     danger: 'text-red-600 hover:text-red-700',
     success: 'text-green-600 hover:text-green-700',

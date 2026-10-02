@@ -161,14 +161,14 @@ export default function LoadingOverlay({
                         isStepCompleted
                           ? 'bg-green-100 text-green-600'
                           : isStepActive
-                          ? 'bg-brand-muted text-primary'
+                          ? 'bg-brand-muted text-foreground'
                           : 'bg-gray-100 text-gray-400'
                       }`}>
                         <StepIcon className={`w-4 h-4 ${isStepActive ? 'animate-pulse' : ''}`} />
                       </div>
                       <div className="flex-1">
                         <p className={`text-sm font-medium transition-colors duration-300 ${
-                          isStepCompleted ? 'text-green-600' : isStepActive ? 'text-primary' : 'text-gray-500'
+                          isStepCompleted ? 'text-green-600' : isStepActive ? 'text-foreground' : 'text-gray-500'
                         }`}>
                           {step.label}
                         </p>

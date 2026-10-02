@@ -98,7 +98,7 @@ function MfaForm() {
             <AppLogo height={40} className="font-bold text-xl text-foreground" />
           </div>
           <div className="mx-auto h-12 w-12 rounded-full bg-brand-muted flex items-center justify-center mb-4">
-            <ShieldCheck className="h-6 w-6 text-primary" />
+            <ShieldCheck className="h-6 w-6 text-foreground" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground">
             Two-factor authentication
