@@ -12,7 +12,8 @@ import { CookModeButton } from '@/components/recipe/CookModeButton';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { RecipeViewTracker } from '@/components/recipe/RecipeViewTracker';
 import { LogoTimer, LogoRays, LaceBand } from '@/components/brand';
-import { formatMinutesLong } from '@/lib/time';
+import { formatMinutesLong, formatMinutesShort } from '@/lib/time';
+import { restHeading, describeRests } from '@/lib/rest';
 import { cn } from '@/utils/cn';
 import type { Metadata } from 'next';
 import type { Recipe } from '@/types/recipe';
@@ -128,6 +129,11 @@ export default async function RecipePage({ params }: PageProps) {
                   {formatMinutesLong(recipe.cook_time)}
                 </Fact>
               )}
+              {recipe.rest_periods.map((rest, i) => (
+                <Fact key={i} icon={<LogoTimer minutes={rest.minutes} label="" className="size-15" />} label={restHeading(rest)}>
+                  {formatMinutesLong(rest.minutes)}
+                </Fact>
+              ))}
               {recipe.servings != null && (
                 <Fact icon={<Users size={30} strokeWidth={1.6} />} label="Serves">
                   {recipe.servings}
@@ -139,6 +145,13 @@ export default async function RecipePage({ params }: PageProps) {
                 </Fact>
               )}
             </div>
+
+            {recipe.rest_periods.length > 0 && recipe.total_time != null && (
+              <p className="mt-4 text-[0.9375rem]">
+                <strong className="font-semibold">Ready in {formatMinutesLong(recipe.total_time)}</strong>
+                <span className="text-muted-foreground">, including {describeRests(recipe.rest_periods, formatMinutesShort)}.</span>
+              </p>
+            )}
 
             <div className="mt-6 flex flex-wrap gap-2.5">
               <a

@@ -21,6 +21,9 @@ import {
 import { useToast } from '@/lib/toast/context';
 import { UNITS_BY_TYPE, type UnitKey } from '@/lib/units';
 import { getImageUrl } from '@/lib/recipes';
+import { RestPeriodsEditor } from './RestPeriodsEditor';
+import { totalRest } from '@/lib/rest';
+import { formatMinutesLong } from '@/lib/time';
 import type {
   Recipe,
   RecipeFormData,
@@ -53,6 +56,7 @@ function emptyFormData(): RecipeFormData {
     cook_time: null,
     servings: null,
     calories_per_serving: null,
+    rest_periods: [],
     ingredient_groups: [{ group_title: '', items: [{ ...EMPTY_INGREDIENT }] }],
     method_groups: [{ group_title: '', items: [''] }],
     serving_suggestions: '',
@@ -77,6 +81,7 @@ function recipeToFormData(recipe: Recipe): RecipeFormData {
     cook_time: recipe.cook_time,
     servings: recipe.servings,
     calories_per_serving: recipe.calories_per_serving,
+    rest_periods: recipe.rest_periods ?? [],
     ingredient_groups: recipe.ingredient_groups.length > 0
       ? recipe.ingredient_groups
       : [{ group_title: '', items: [{ ...EMPTY_INGREDIENT }] }],
@@ -436,9 +441,16 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
             />
           </Field>
         </div>
+        <RestPeriodsEditor value={form.rest_periods} onChange={(periods) => updateField('rest_periods', periods)} />
+        {(form.prep_time || form.cook_time || form.rest_periods.length > 0) && (
+          <p className="text-sm text-muted-foreground">
+            Total time: <strong className="text-foreground">{formatMinutesLong((form.prep_time ?? 0) + (form.cook_time ?? 0) + totalRest(form.rest_periods))}</strong>
+            {form.rest_periods.length > 0 && ' (used for the time filters and cards)'}
+          </p>
+        )}
       </Section>
 
-      {/* ── Ingredients ── */}
+            {/* ── Ingredients ── */}
       <Section title="Ingredients">
         {form.ingredient_groups.map((group, gi) => (
           <div key={gi} className="bg-muted/30 rounded-lg border border-border p-4 mb-4">

@@ -17,6 +17,7 @@ function recipe(id: string, o: Partial<ReportRecipe> & { course?: string; cuisin
     prep_time: 10,
     cook_time: 10,
     total_time: 20,
+    rest_time: null,
     course_categories: course ? [cat('course', course)] : [cat('course', 'main')],
     cuisine_categories: cuisine ? [cat('cuisine', cuisine)] : [cat('cuisine', 'greek')],
     dietary_categories: [],

@@ -174,12 +174,15 @@ export function buildPairings(rows: { recipe_id: string; accompanying_id: string
 
 /**
  * Rough time to get the whole meal on the table: all the prep, plus the
- * longest cook (assuming things cook side by side). Null if nothing is timed.
+ * longest cook-and-rest (assuming dishes cook and rest side by side).
+ * Null if nothing is timed.
  */
 export function mealTiming(dishes: (RecipeSummary | null)[]): number | null {
-  const timed = dishes.filter((d): d is RecipeSummary => !!d && (d.prep_time != null || d.cook_time != null));
+  const timed = dishes.filter(
+    (d): d is RecipeSummary => !!d && (d.prep_time != null || d.cook_time != null || d.rest_time != null)
+  );
   if (!timed.length) return null;
   const prep = timed.reduce((sum, d) => sum + (d.prep_time ?? 0), 0);
-  const cook = Math.max(0, ...timed.map((d) => d.cook_time ?? 0));
-  return prep + cook;
+  const cookAndRest = Math.max(0, ...timed.map((d) => (d.cook_time ?? 0) + (d.rest_time ?? 0)));
+  return prep + cookAndRest;
 }

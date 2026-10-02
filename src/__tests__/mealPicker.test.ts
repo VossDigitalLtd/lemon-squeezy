@@ -26,6 +26,7 @@ function recipe(id: string, course: string, opts: Partial<RecipeSummary> & { cui
     prep_time: 10,
     cook_time: 20,
     total_time: 30,
+    rest_time: null,
     course_categories: [cat('course', course)],
     cuisine_categories: cuisine ? [cat('cuisine', cuisine)] : [],
     dietary_categories: (diet ?? []).map((d) => cat('dietary', d)),
@@ -131,6 +132,15 @@ describe('pickMeal', () => {
 });
 
 describe('mealTiming', () => {
+  it('counts a dessert that needs to set as the longest wait', () => {
+    expect(
+      mealTiming([
+        recipe('a', 'main', { prep_time: 15, cook_time: 40 }),
+        recipe('cheesecake', 'dessert', { prep_time: 20, cook_time: 0, rest_time: 240 }),
+      ])
+    ).toBe(275);
+  });
+
   it('adds up the prep and the longest cook', () => {
     expect(mealTiming([recipe('a', 'main', { prep_time: 15, cook_time: 40 }), recipe('b', 'side', { prep_time: 10, cook_time: 30 }), null])).toBe(65);
   });

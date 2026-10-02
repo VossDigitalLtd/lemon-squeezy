@@ -15,6 +15,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { BaseQueryService } from '../core/BaseQueryService';
 import { weekStartOf } from '@/lib/weeks';
+import { cleanRestPeriods, type RestPeriod } from '@/lib/rest';
 import type { ServiceResponse } from '@/types';
 import type {
   Recipe,
@@ -27,14 +28,14 @@ import type {
 export const RECIPE_SUMMARY_SELECT = `
   id, uid, title, subtitle, short_description,
   feature_image_path, feature_image_alt,
-  prep_time, cook_time, total_time,
+  prep_time, cook_time, rest_time, total_time,
   recipe_categories(category:categories(id, type, uid, title))
 `;
 
 const RECIPE_FULL_SELECT = `
   id, uid, title, subtitle, short_description, full_description,
   feature_image_path, feature_image_alt,
-  prep_time, cook_time, total_time, servings, calories_per_serving,
+  prep_time, cook_time, rest_time, rest_periods, total_time, servings, calories_per_serving,
   ingredient_groups, method_groups,
   serving_suggestions, tips,
   published_at,
@@ -42,7 +43,7 @@ const RECIPE_FULL_SELECT = `
   recipe_categories(category:categories(id, type, uid, title)),
   recipe_accompanying!recipe_accompanying_recipe_id_fkey(accompanying:recipes!recipe_accompanying_accompanying_id_fkey(
     id, uid, title, subtitle, short_description, feature_image_path, feature_image_alt,
-    prep_time, cook_time, total_time,
+    prep_time, cook_time, rest_time, total_time,
     recipe_categories(category:categories(id, type, uid, title))
   ))
 `;
@@ -59,6 +60,8 @@ export interface RawRecipeRow {
   prep_time?: number | null;
   cook_time?: number | null;
   total_time?: number | null;
+  rest_time?: number | null;
+  rest_periods?: RestPeriod[] | null;
   servings?: number | null;
   calories_per_serving?: number | null;
   ingredient_groups?: Recipe['ingredient_groups'];
@@ -95,6 +98,7 @@ export function toRecipeSummary(row: RawRecipeRow): RecipeSummary {
     feature_image_alt: row.feature_image_alt,
     prep_time: row.prep_time ?? null,
     cook_time: row.cook_time ?? null,
+    rest_time: row.rest_time ?? null,
     total_time: row.total_time ?? null,
     ...transformCategories(row),
   };
@@ -114,6 +118,8 @@ function toRecipe(row: RawRecipeRow): Recipe {
     cook_time: row.cook_time ?? null,
     servings: row.servings ?? null,
     calories_per_serving: row.calories_per_serving ?? null,
+    rest_time: row.rest_time ?? null,
+    rest_periods: row.rest_periods ?? [],
     total_time: row.total_time ?? null,
     ingredient_groups: row.ingredient_groups || [],
     method_groups: row.method_groups || [],
@@ -350,8 +356,9 @@ class RecipeServiceClass extends BaseQueryService {
         cuisine_category_ids,
         dietary_category_ids,
         accompanying_recipe_ids,
-        ...recipeData
+        ...rest
       } = formData;
+      const recipeData = { ...rest, rest_periods: cleanRestPeriods(rest.rest_periods) };
 
       // Insert recipe
       const { data: recipe, error } = await supabase
@@ -401,8 +408,9 @@ class RecipeServiceClass extends BaseQueryService {
         cuisine_category_ids,
         dietary_category_ids,
         accompanying_recipe_ids,
-        ...recipeData
+        ...rest
       } = formData;
+      const recipeData = { ...rest, rest_periods: cleanRestPeriods(rest.rest_periods) };
 
       // Update recipe row
       const { error } = await supabase

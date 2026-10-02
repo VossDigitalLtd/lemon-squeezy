@@ -1,4 +1,5 @@
 import type { UnitKey } from '@/lib/units';
+import type { RestPeriod } from '@/lib/rest';
 
 // ─── Category ────────────────────────────────────────────────────────────────
 
@@ -51,7 +52,11 @@ export interface Recipe {
   cook_time: number | null;
   servings: number | null;
   calories_per_serving: number | null;
-  /** prep_time + cook_time, null when neither is set (generated column) */
+  /** Resting, setting, proving… in order (each counts towards total_time) */
+  rest_periods: RestPeriod[];
+  /** Sum of rest_periods in minutes (kept by a database trigger) */
+  rest_time: number | null;
+  /** prep + cook + rest, null when none is set (generated column) */
   total_time: number | null;
   ingredient_groups: IngredientGroup[];
   method_groups: MethodGroup[];
@@ -78,6 +83,7 @@ export interface RecipeSummary {
   feature_image_alt: string | null;
   prep_time: number | null;
   cook_time: number | null;
+  rest_time: number | null;
   total_time: number | null;
   course_categories: Category[];
   cuisine_categories: Category[];
@@ -98,6 +104,7 @@ export interface RecipeFormData {
   cook_time: number | null;
   servings: number | null;
   calories_per_serving: number | null;
+  rest_periods: RestPeriod[];
   ingredient_groups: IngredientGroup[];
   method_groups: MethodGroup[];
   serving_suggestions: string;

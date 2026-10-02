@@ -5,7 +5,8 @@ import { RecipeService } from '@/lib/supabase/services';
 import { LogoMark, LogoTimer, LaceBand } from '@/components/brand';
 import { getImageUrl, textToHtml } from '@/lib/recipes';
 import { displayIngredient, formatAmount } from '@/lib/units';
-import { formatMinutesLong } from '@/lib/time';
+import { formatMinutesLong, formatMinutesShort } from '@/lib/time';
+import { restNoun, describeRests } from '@/lib/rest';
 import { PrintToolbar } from './PrintToolbar';
 import type { Metadata } from 'next';
 
@@ -68,10 +69,18 @@ export default async function PrintRecipePage({ params, searchParams }: PageProp
             {recipe.subtitle && <p className="mt-1 font-display text-[16px] italic text-[#555]">{recipe.subtitle}</p>}
             {recipe.short_description && <p className="mt-3 text-[12.5px] leading-relaxed">{recipe.short_description}</p>}
             {categories.length > 0 && <p className="mt-2 text-[10.5px] uppercase tracking-[0.1em] text-[#666]">{categories.join(' · ')}</p>}
+            {recipe.rest_periods.length > 0 && recipe.total_time != null && (
+              <p className="mt-2 text-[11.5px]">
+                <b>Ready in {formatMinutesLong(recipe.total_time)}</b>, including {describeRests(recipe.rest_periods, formatMinutesShort)}.
+              </p>
+            )}
 
             <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[11.5px]">
               {recipe.prep_time != null && <Fact minutes={recipe.prep_time} label="Prep" />}
               {recipe.cook_time != null && recipe.cook_time > 0 && <Fact minutes={recipe.cook_time} label="Cook" />}
+              {recipe.rest_periods.map((rest, i) => (
+                <Fact key={i} minutes={rest.minutes} label={restNoun(rest)} />
+              ))}
               <div className="flex items-center gap-2">
                 <span>
                   <b className="block font-display text-[13px] font-normal">Serves</b>
