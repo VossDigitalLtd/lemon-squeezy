@@ -6,7 +6,7 @@ import { LogoMark, LogoTimer, LaceBand } from '@/components/brand';
 import { getImageUrl, textToHtml } from '@/lib/recipes';
 import { displayIngredient, formatAmount } from '@/lib/units';
 import { formatMinutesLong, formatMinutesShort } from '@/lib/time';
-import { restNoun, describeRests } from '@/lib/rest';
+import { restNoun, describeRests, timeSequence } from '@/lib/rest';
 import { PrintToolbar } from './PrintToolbar';
 import type { Metadata } from 'next';
 
@@ -76,10 +76,13 @@ export default async function PrintRecipePage({ params, searchParams }: PageProp
             )}
 
             <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[11.5px]">
-              {recipe.prep_time != null && <Fact minutes={recipe.prep_time} label="Prep" />}
-              {recipe.cook_time != null && recipe.cook_time > 0 && <Fact minutes={recipe.cook_time} label="Cook" />}
-              {recipe.rest_periods.map((rest, i) => (
-                <Fact key={i} minutes={rest.minutes} label={restNoun(rest)} />
+              {/* Cooking order: prep, rests before cooking, cook, rests after */}
+              {timeSequence(recipe.prep_time, recipe.cook_time, recipe.rest_periods).map((stage, i) => (
+                <Fact
+                  key={i}
+                  minutes={stage.minutes}
+                  label={`${i > 0 ? '→ ' : ''}${stage.kind === 'prep' ? 'Prep' : stage.kind === 'cook' ? 'Cook' : restNoun(stage.period)}`}
+                />
               ))}
               <div className="flex items-center gap-2">
                 <span>

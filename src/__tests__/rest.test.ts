@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDuration, durationInput, restNoun, restHeading, totalRest, describeRests, cleanRestPeriods } from '@/lib/rest';
+import { parseDuration, durationInput, restNoun, restHeading, totalRest, describeRests, cleanRestPeriods, timeSequence } from '@/lib/rest';
 import { formatMinutesShort } from '@/lib/time';
 
 describe('parseDuration', () => {
@@ -65,5 +65,30 @@ describe('cleanRestPeriods', () => {
       { type: 'set', minutes: 240 },
       { type: 'other', minutes: 60, label: 'Freezing' },
     ]);
+  });
+});
+
+describe('timeSequence', () => {
+  const order = (stages: ReturnType<typeof timeSequence>) =>
+    stages.map((s) => (s.kind === 'rest' ? `${s.period.type}:${s.minutes}` : `${s.kind}:${s.minutes}`));
+
+  it('puts marinating between prep and cook', () => {
+    expect(order(timeSequence(15, 12, [{ type: 'marinate', minutes: 120 }]))).toEqual(['prep:15', 'marinate:120', 'cook:12']);
+  });
+
+  it('puts proving before and cooling after, keeping their order', () => {
+    expect(
+      order(timeSequence(20, 35, [{ type: 'cool', minutes: 30 }, { type: 'prove', minutes: 60 }, { type: 'prove', minutes: 45 }]))
+    ).toEqual(['prep:20', 'prove:60', 'prove:45', 'cook:35', 'cool:30']);
+  });
+
+  it('respects a rest moved to the other side, and recipes with no cooking', () => {
+    expect(order(timeSequence(10, 30, [{ type: 'chill', minutes: 60, when: 'after' }]))).toEqual(['prep:10', 'cook:30', 'chill:60']);
+    expect(order(timeSequence(15, null, [{ type: 'set', minutes: 240 }]))).toEqual(['prep:15', 'set:240']);
+  });
+
+  it('only stores "when" if it differs from the usual position', () => {
+    expect(cleanRestPeriods([{ type: 'chill', minutes: 60, when: 'before' }])).toEqual([{ type: 'chill', minutes: 60 }]);
+    expect(cleanRestPeriods([{ type: 'chill', minutes: 60, when: 'after' }])).toEqual([{ type: 'chill', minutes: 60, when: 'after' }]);
   });
 });

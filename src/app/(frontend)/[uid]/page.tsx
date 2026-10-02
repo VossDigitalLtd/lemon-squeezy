@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowDown, Flame, Printer, Users } from 'lucide-react';
+import { ArrowDown, ChevronRight, Flame, Printer, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { RecipeService, FavouriteService } from '@/lib/supabase/services';
 import { getImageUrl, textToHtml } from '@/lib/recipes';
@@ -13,7 +13,7 @@ import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { RecipeViewTracker } from '@/components/recipe/RecipeViewTracker';
 import { LogoTimer, LogoRays, LaceBand } from '@/components/brand';
 import { formatMinutesLong, formatMinutesShort } from '@/lib/time';
-import { restHeading, describeRests } from '@/lib/rest';
+import { restHeading, describeRests, timeSequence } from '@/lib/rest';
 import { cn } from '@/utils/cn';
 import type { Metadata } from 'next';
 import type { Recipe } from '@/types/recipe';
@@ -119,20 +119,17 @@ export default async function RecipePage({ params }: PageProps) {
 
             {/* Facts */}
             <div className="mt-8 flex flex-wrap gap-x-9 gap-y-5 border-y border-border py-6">
-              {recipe.prep_time != null && (
-                <Fact icon={<LogoTimer minutes={recipe.prep_time} label="" className="size-15" />} label="Prep time">
-                  {formatMinutesLong(recipe.prep_time)}
-                </Fact>
-              )}
-              {recipe.cook_time != null && recipe.cook_time > 0 && (
-                <Fact icon={<LogoTimer minutes={recipe.cook_time} label="" className="size-15" />} label="Cook time">
-                  {formatMinutesLong(recipe.cook_time)}
-                </Fact>
-              )}
-              {recipe.rest_periods.map((rest, i) => (
-                <Fact key={i} icon={<LogoTimer minutes={rest.minutes} label="" className="size-15" />} label={restHeading(rest)}>
-                  {formatMinutesLong(rest.minutes)}
-                </Fact>
+              {/* Times in cooking order: prep, rests before cooking, cook, rests after */}
+              {timeSequence(recipe.prep_time, recipe.cook_time, recipe.rest_periods).map((stage, i) => (
+                <span key={i} className="flex items-center gap-x-3">
+                  {i > 0 && <ChevronRight size={18} className="-ml-4 text-muted-foreground" aria-hidden="true" />}
+                  <Fact
+                    icon={<LogoTimer minutes={stage.minutes} label="" className="size-15" />}
+                    label={stage.kind === 'prep' ? 'Prep time' : stage.kind === 'cook' ? 'Cook time' : restHeading(stage.period)}
+                  >
+                    {formatMinutesLong(stage.minutes)}
+                  </Fact>
+                </span>
               ))}
               {recipe.servings != null && (
                 <Fact icon={<Users size={30} strokeWidth={1.6} />} label="Serves">

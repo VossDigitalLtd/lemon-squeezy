@@ -5,7 +5,8 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { REST_TYPES, REST_TYPE_INFO, durationInput, parseDuration, type RestPeriod, type RestType } from '@/lib/rest';
+import { DEFAULT_WHEN, REST_TYPES, REST_TYPE_INFO, durationInput, parseDuration, restWhen, type RestPeriod, type RestType, type RestWhen } from '@/lib/rest';
+import { cn } from '@/utils/cn';
 import { formatMinutesLong } from '@/lib/time';
 
 interface Row {
@@ -13,10 +14,11 @@ interface Row {
   type: RestType;
   label: string;
   text: string;
+  when: RestWhen;
 }
 
 const toRows = (periods: RestPeriod[]): Row[] =>
-  periods.map((p, i) => ({ key: `r${i}-${p.type}`, type: p.type, label: p.label ?? '', text: durationInput(p.minutes) }));
+  periods.map((p, i) => ({ key: `r${i}-${p.type}`, type: p.type, label: p.label ?? '', text: durationInput(p.minutes), when: restWhen(p) }));
 
 /**
  * Rest periods for the recipe form: resting, setting, proving… Each row is a
@@ -30,9 +32,14 @@ export function RestPeriodsEditor({ value, onChange }: { value: RestPeriod[]; on
     setRows(next);
     onChange(
       next
-        .map((r) => ({ type: r.type, label: r.label, minutes: parseDuration(r.text) ?? 0 }))
+        .map((r) => {
+          const period: RestPeriod = { type: r.type, minutes: parseDuration(r.text) ?? 0 };
+          if (r.type === 'other' && r.label.trim()) period.label = r.label;
+          // Only kept when moved from the type's usual position
+          if (r.when !== DEFAULT_WHEN[r.type]) period.when = r.when;
+          return period;
+        })
         .filter((p) => p.minutes > 0)
-        .map((p) => (p.type === 'other' && p.label.trim() ? p : { type: p.type, minutes: p.minutes }))
     );
   }
 
@@ -42,7 +49,7 @@ export function RestPeriodsEditor({ value, onChange }: { value: RestPeriod[]; on
     <div>
       <div className="mb-2 flex items-baseline justify-between gap-4">
         <p className="text-sm font-medium">Rest times</p>
-        <p className="text-xs text-muted-foreground">Resting, setting, proving… each one counts towards the total time.</p>
+        <p className="text-xs text-muted-foreground">Shown in cooking order, before or after the cook time. Each one counts towards the total.</p>
       </div>
 
       {rows.length > 0 && (
@@ -51,8 +58,9 @@ export function RestPeriodsEditor({ value, onChange }: { value: RestPeriod[]; on
             const minutes = parseDuration(row.text);
             const invalid = row.text.trim() !== '' && minutes == null;
             return (
-              <li key={row.key} className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-[10rem_minmax(0,1fr)_9rem_auto] sm:items-start">
-                <Select value={row.type} onValueChange={(v) => update(row.key, { type: v as RestType })}>
+              <li key={row.key} className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto_9rem_auto] sm:items-start">
+                {/* Changing the kind resets its position to the usual one (prove → before, set → after) */}
+                <Select value={row.type} onValueChange={(v) => update(row.key, { type: v as RestType, when: DEFAULT_WHEN[v as RestType] })}>
                   <SelectTrigger className="w-full" aria-label="Kind of rest">
                     <SelectValue />
                   </SelectTrigger>
@@ -77,6 +85,23 @@ export function RestPeriodsEditor({ value, onChange }: { value: RestPeriod[]; on
                 ) : (
                   <p className="self-center text-sm text-muted-foreground">Shown as &ldquo;{REST_TYPE_INFO[row.type].noun} time&rdquo;</p>
                 )}
+
+                <div className="inline-flex h-9 rounded-md border border-border p-0.5" role="group" aria-label="When this happens">
+                  {(['before', 'after'] as const).map((w) => (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => update(row.key, { when: w })}
+                      aria-pressed={row.when === w}
+                      className={cn(
+                        'whitespace-nowrap rounded px-2.5 text-xs font-medium transition-colors',
+                        row.when === w ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {w === 'before' ? 'Before cooking' : 'After cooking'}
+                    </button>
+                  ))}
+                </div>
 
                 <div>
                   <Input
@@ -111,7 +136,7 @@ export function RestPeriodsEditor({ value, onChange }: { value: RestPeriod[]; on
         type="button"
         variant="outline"
         size="sm"
-        onClick={() => commit([...rows, { key: `r${Date.now()}`, type: 'rest', label: '', text: '' }])}
+        onClick={() => commit([...rows, { key: `r${Date.now()}`, type: 'rest', label: '', text: '', when: DEFAULT_WHEN.rest }])}
       >
         <Plus size={14} /> Add a rest
       </Button>

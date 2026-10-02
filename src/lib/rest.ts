@@ -3,11 +3,50 @@
 export const REST_TYPES = ['rest', 'set', 'chill', 'cool', 'marinate', 'prove', 'soak', 'other'] as const;
 export type RestType = (typeof REST_TYPES)[number];
 
+export type RestWhen = 'before' | 'after';
+
 export interface RestPeriod {
   type: RestType;
   /** Only for type "other", e.g. "Freezing" */
   label?: string;
   minutes: number;
+  /** Before or after cooking; left out = the type's usual position */
+  when?: RestWhen;
+}
+
+/** Where each kind of rest usually happens */
+export const DEFAULT_WHEN: Record<RestType, RestWhen> = {
+  marinate: 'before',
+  prove: 'before',
+  soak: 'before',
+  chill: 'before',
+  rest: 'after',
+  set: 'after',
+  cool: 'after',
+  other: 'after',
+};
+
+export function restWhen(period: RestPeriod): RestWhen {
+  return period.when ?? DEFAULT_WHEN[period.type] ?? 'after';
+}
+
+export type TimeStage =
+  | { kind: 'prep'; minutes: number }
+  | { kind: 'cook'; minutes: number }
+  | { kind: 'rest'; minutes: number; period: RestPeriod };
+
+/**
+ * Times in cooking order: prep, rests before cooking, cook, rests after.
+ * Rests in the same position keep the order they were entered in.
+ */
+export function timeSequence(prep: number | null, cook: number | null, rests: RestPeriod[] | null | undefined): TimeStage[] {
+  const list = (rests ?? []).filter((r) => r.minutes > 0);
+  const stages: TimeStage[] = [];
+  if (prep) stages.push({ kind: 'prep', minutes: prep });
+  for (const r of list.filter((r) => restWhen(r) === 'before')) stages.push({ kind: 'rest', minutes: r.minutes, period: r });
+  if (cook) stages.push({ kind: 'cook', minutes: cook });
+  for (const r of list.filter((r) => restWhen(r) === 'after')) stages.push({ kind: 'rest', minutes: r.minutes, period: r });
+  return stages;
 }
 
 /** Choice shown in the admin form, and the noun used on the recipe page */
@@ -97,5 +136,7 @@ export function cleanRestPeriods(input: unknown): RestPeriod[] {
       type: p.type as RestType,
       minutes: p.minutes as number,
       ...(p.type === 'other' && typeof p.label === 'string' && p.label.trim() ? { label: p.label.trim().slice(0, 40) } : {}),
+      // Only stored when it differs from the type's usual position
+      ...((p.when === 'before' || p.when === 'after') && p.when !== DEFAULT_WHEN[p.type as RestType] ? { when: p.when as RestWhen } : {}),
     }));
 }
