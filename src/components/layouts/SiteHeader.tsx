@@ -273,7 +273,7 @@ function MobileMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (open
           <MobileNavLinks />
         </Suspense>
 
-        <div className="mt-6 grid gap-2 border-t border-border pt-6">
+        <div className="mt-6 grid gap-2">
           {user ? (
             <>
               <MobileLink href="/account/recipe-box" icon={<Heart size={18} className="text-red-600 dark:text-red-400" />}>
