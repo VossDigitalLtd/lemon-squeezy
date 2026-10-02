@@ -51,21 +51,33 @@ class FavouriteServiceClass {
     options: { limit?: number } = {}
   ): Promise<ServiceResponse<RecipeSummary[]>> {
     try {
-      let query = supabase
+      // Two steps rather than an embedded join, so this doesn't depend on a
+      // favourites → recipes foreign key existing in the database.
+      let favQuery = supabase
         .from('favourites')
-        .select(`created_at, recipe:recipes(${RECIPE_SUMMARY_SELECT})`)
+        .select('recipe_id')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (options.limit) query = query.limit(options.limit);
+      if (options.limit) favQuery = favQuery.limit(options.limit);
 
-      const { data, error } = await query;
+      const { data: favs, error: favError } = await favQuery;
+      if (favError) throw favError;
+
+      const ids = (favs || []).map((f) => f.recipe_id as string);
+      if (ids.length === 0) return { success: true, data: [] };
+
+      const { data: rows, error } = await supabase
+        .from('recipes')
+        .select(RECIPE_SUMMARY_SELECT)
+        .in('id', ids);
       if (error) throw error;
 
-      const rows = (data || []) as unknown as { recipe: RawRecipeRow | null }[];
+      // Keep most-recently-saved order; skip favourites whose recipe has gone
+      const byId = new Map(((rows || []) as unknown as RawRecipeRow[]).map((r) => [r.id, r]));
       return {
         success: true,
-        data: rows.filter((r) => r.recipe).map((r) => toRecipeSummary(r.recipe!)),
+        data: ids.filter((id) => byId.has(id)).map((id) => toRecipeSummary(byId.get(id)!)),
       };
     } catch (error) {
       console.error('[FavouriteService] getUserFavourites error:', error);
