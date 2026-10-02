@@ -128,9 +128,11 @@ export function FrontendHeader({ logoHref = '/', nav, mobileLinks }: FrontendHea
             {THEME_ICONS[theme]}
           </button>
 
-          {/* Auth state */}
+          {/* Auth state — fixed-width slot so the controls beside it don't move
+              when the placeholder becomes "Sign in" or the avatar */}
+          <div className="flex w-[5.25rem] justify-end">
           {isLoading ? (
-            <div className="h-7 w-7 rounded-full bg-muted animate-pulse" />
+            <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
           ) : !user ? (
             <Link
               href="/login"
@@ -179,6 +181,7 @@ export function FrontendHeader({ logoHref = '/', nav, mobileLinks }: FrontendHea
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          </div>
         </div>
       </div>
     </header>

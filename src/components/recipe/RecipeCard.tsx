@@ -85,10 +85,14 @@ export function RecipeCard({
         {course && <span>{course}</span>}
       </div>
 
+      {/* Standard cards always take two title lines (clamped), so every card in a
+          grid is the same height and rows don't jump as the results change */}
       <h3
+        title={recipe.title}
         className={cn(
-          'font-display leading-[1.1] text-balance decoration-primary decoration-[3px] underline-offset-4 group-hover:underline',
-          isLead ? 'text-[clamp(1.75rem,2.6vw,2.25rem)]' : 'text-[1.375rem]'
+          'font-display text-balance decoration-primary decoration-[3px] underline-offset-4 group-hover:underline',
+          // size/line-height together: cn() would drop a separate leading-* next to text-*
+          isLead ? 'text-[clamp(1.75rem,2.6vw,2.25rem)]/[1.1]' : 'line-clamp-2 min-h-[2.2em] text-[1.375rem]/[1.1]'
         )}
       >
         {recipe.title}

@@ -161,6 +161,11 @@ html[data-font-size="large"]  { font-size: 18px; }
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Always reserve the scrollbar's space, so the page width (and every card
+       in a grid) doesn't change when filtering makes the page shorter */
+    scrollbar-gutter: stable;
+  }
   body {
     @apply bg-background text-foreground;
   }
