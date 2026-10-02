@@ -205,6 +205,9 @@ export default async function RecipePage({ params }: PageProps) {
       )}
 
 
+      {/* Counts one view for the admin reports (skips staff, bots and quick repeats) */}
+      <RecipeViewTracker recipeId={recipe.id} />
+
       <RecipeJsonLd recipe={recipe} imageUrl={imageUrl} />
     </>
   );
