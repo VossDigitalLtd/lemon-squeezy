@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { FrontendHeader } from '@/components/layouts/FrontendHeader';
+import { SiteHeader } from '@/components/layouts/SiteHeader';
+import { ThemeSwitcher } from '@/components/layouts/ThemeSwitcher';
 import { LogoMark } from '@/components/brand';
 import { PendingSaveHandler } from '@/components/recipe/PendingSaveHandler';
 import { FRONTEND_NAV_LINKS } from '@/lib/config/navigation';
@@ -8,22 +9,7 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <PendingSaveHandler />
-      <FrontendHeader
-        mobileLinks={FRONTEND_NAV_LINKS}
-        nav={
-          <nav className="hidden md:flex items-center gap-7" aria-label="Main">
-            {FRONTEND_NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="py-1.5 text-[0.9375rem] font-medium text-foreground border-b-2 border-transparent hover:border-primary transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-        }
-      />
+      <SiteHeader />
       {/* A page can end on a full-bleed band ([data-flush-bottom]) that meets the footer.
           flex-col lets a page band grow to fill the height (flex-1); children are
           forced full width because centred mx-auto boxes otherwise shrink to fit
@@ -45,6 +31,7 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
           <p className="text-[0.9375rem] text-footer-foreground/70">
             Lemon Squeezy · Simple, delicious recipes made easy · Καλή όρεξη
           </p>
+          <ThemeSwitcher tone="footer" className="mt-2" />
         </div>
       </footer>
     </div>
