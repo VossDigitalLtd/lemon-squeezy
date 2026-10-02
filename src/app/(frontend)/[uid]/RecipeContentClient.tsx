@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Minus, Plus, Check, Printer } from 'lucide-react';
 import { displayIngredient, formatAmount, ingredientLabel } from '@/lib/units';
-import { splitStepDurations } from '@/lib/time';
-import { StepTimer } from '@/components/recipe/StepTimer';
+import { methodTerms } from '@/lib/methodLinks';
+import { MethodStepText } from '@/components/recipe/MethodStepText';
+import { Switch } from '@/components/ui/switch';
 import { AddToListButton } from '@/components/recipe/AddToListButton';
 import { cn } from '@/utils/cn';
 import type { Recipe } from '@/types/recipe';
@@ -27,6 +28,30 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
     if (next.has(key)) next.delete(key);
     else next.add(key);
     return next;
+  }
+
+  // Ingredients mentioned in the steps, and how much of each (at the chosen servings)
+  const terms = useMemo(() => methodTerms(recipe.ingredient_groups), [recipe.ingredient_groups]);
+  const [showAmounts, setShowAmounts] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('ls-step-amounts') === '1') setShowAmounts(true);
+    } catch {}
+  }, []);
+  function amountFor(ids: string[]): string {
+    const amounts = ids.map((id) => {
+      const lines = recipe.ingredient_groups.flatMap((g) => g.items).filter((i) => i.ingredient_id === id);
+      const amount = lines
+        .map((i) => formatAmount(displayIngredient(i, baseServings, servings, system)))
+        .filter(Boolean)
+        .join(' + ');
+      return { amount, name: lines[0]?.name ?? '' };
+    });
+    if (ids.length === 1) return amounts[0].amount;
+    return amounts
+      .filter((a) => a.amount)
+      .map((a) => `${a.amount} ${a.name}`)
+      .join(' · ');
   }
 
   // Number steps continuously across method groups
@@ -156,9 +181,24 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
 
       {/* ── Method ── */}
       <section aria-labelledby="method-title" className="min-w-0">
-        <h2 id="method-title" className="font-display text-[2rem] leading-tight">
-          Method
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="method-title" className="font-display text-[2rem] leading-tight">
+            Method
+          </h2>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground print:hidden">
+            <Switch
+              size="sm"
+              checked={showAmounts}
+              onCheckedChange={(v) => {
+                setShowAmounts(v);
+                try {
+                  localStorage.setItem('ls-step-amounts', v ? '1' : '0');
+                } catch {}
+              }}
+            />
+            Show amounts in steps
+          </label>
+        </div>
 
         {recipe.method_groups.map((group, gi) => (
           <div key={gi}>
@@ -201,13 +241,7 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
                       <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                         Step {n}
                       </span>
-                      {splitStepDurations(step).map((seg, i) =>
-                        seg.type === 'timer' ? (
-                          <StepTimer key={i} minutes={seg.minutes} label={seg.text} />
-                        ) : (
-                          <span key={i}>{seg.text}</span>
-                        )
-                      )}
+                      <MethodStepText step={step} terms={terms} links={recipe.method_links} amountFor={amountFor} showAll={showAmounts} />
                     </p>
                   </li>
                 );
@@ -216,7 +250,7 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
           </div>
         ))}
 
-        <p className="mt-4 text-sm text-muted-foreground">Tap a step when it&rsquo;s done. Tap a time to start a timer.</p>
+        <p className="mt-4 text-sm text-muted-foreground">Tap a step when it&rsquo;s done, an ingredient to see how much, or a time to start a timer.</p>
 
         {children}
       </section>

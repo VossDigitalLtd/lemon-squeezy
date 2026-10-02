@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { RECIPE_SUMMARY_SELECT, toRecipeSummary, type RawRecipeRow } from '@/lib/supabase/services/RecipeService';
 import { buildReport, type Report, type ReportRecipe } from '@/lib/reports';
+import { cleanMethodLinks, methodCheck } from '@/lib/methodLinks';
+import type { IngredientGroup, MethodGroup } from '@/types/recipe';
 
 /**
  * Load everything the reports need. Uses the service-role client because
@@ -29,10 +31,21 @@ export async function loadReport(): Promise<Report> {
 
   const rows = (recipes.data || []) as unknown as (RawRecipeRow & { published_at: string })[];
 
+  // How well each method mentions its ingredients (missing until migration 030 is run)
+  const methods = await admin.from('recipes').select('id, ingredient_groups, method_groups, method_links');
+  const methodIssues = new Map<string, number>();
+  if (!methods.error) {
+    for (const r of (methods.data || []) as { id: string; ingredient_groups: IngredientGroup[]; method_groups: MethodGroup[]; method_links: unknown }[]) {
+      const check = methodCheck(r.ingredient_groups || [], r.method_groups || [], cleanMethodLinks(r.method_links));
+      methodIssues.set(r.id, check.unmentioned.length + check.ambiguous.length);
+    }
+  }
+
   return buildReport({
     recipes: rows.map((row): ReportRecipe => ({
       ...toRecipeSummary(row),
       published_at: row.published_at,
+      method_issues: methodIssues.get(row.id),
     })),
     favourites: favourites.data || [],
     profiles: profiles.data || [],

@@ -1,5 +1,6 @@
 import type { UnitKey } from '@/lib/units';
 import type { RestPeriod } from '@/lib/rest';
+import type { MethodLinks } from '@/lib/methodLinks';
 
 // ─── Category ────────────────────────────────────────────────────────────────
 
@@ -75,6 +76,8 @@ export interface Recipe {
   total_time: number | null;
   ingredient_groups: IngredientGroup[];
   method_groups: MethodGroup[];
+  /** Corrections to the ingredients each step mentions */
+  method_links: MethodLinks;
   serving_suggestions: string;
   tips: string;
   published_at: string;
@@ -124,6 +127,7 @@ export interface RecipeFormData {
   rest_periods: RestPeriod[];
   ingredient_groups: IngredientGroup[];
   method_groups: MethodGroup[];
+  method_links?: MethodLinks;
   serving_suggestions: string;
   tips: string;
   published_at?: string;

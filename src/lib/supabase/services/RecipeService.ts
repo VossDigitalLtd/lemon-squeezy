@@ -16,6 +16,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { BaseQueryService } from '../core/BaseQueryService';
 import { weekStartOf } from '@/lib/weeks';
 import { cleanRestPeriods, type RestPeriod } from '@/lib/rest';
+import { cleanMethodLinks } from '@/lib/methodLinks';
 import { parseIngredientName } from '@/lib/ingredientMatch';
 import type { ServiceResponse } from '@/types';
 import type {
@@ -38,7 +39,7 @@ const RECIPE_FULL_SELECT = `
   id, uid, title, subtitle, short_description, full_description,
   feature_image_path, feature_image_alt,
   prep_time, cook_time, rest_time, rest_periods, total_time, servings, calories_per_serving,
-  ingredient_groups, method_groups,
+  ingredient_groups, method_groups, method_links,
   serving_suggestions, tips,
   published_at,
   created_at, updated_at,
@@ -68,6 +69,7 @@ export interface RawRecipeRow {
   calories_per_serving?: number | null;
   ingredient_groups?: Recipe['ingredient_groups'];
   method_groups?: Recipe['method_groups'];
+  method_links?: unknown;
   serving_suggestions?: string;
   tips?: string;
   published_at?: string;
@@ -127,6 +129,7 @@ function toRecipe(row: RawRecipeRow): Recipe {
     total_time: row.total_time ?? null,
     ingredient_groups: row.ingredient_groups || [],
     method_groups: row.method_groups || [],
+    method_links: cleanMethodLinks(row.method_links),
     serving_suggestions: row.serving_suggestions || '',
     tips: row.tips || '',
     published_at: row.published_at || row.created_at || '',
@@ -366,6 +369,7 @@ class RecipeServiceClass extends BaseQueryService {
         ...rest,
         rest_periods: cleanRestPeriods(rest.rest_periods),
         ingredient_groups: await linkIngredients(supabase, rest.ingredient_groups),
+        ...(rest.method_links ? { method_links: cleanMethodLinks(rest.method_links) } : {}),
       };
 
       // Insert recipe
@@ -423,6 +427,7 @@ class RecipeServiceClass extends BaseQueryService {
         ...rest,
         rest_periods: cleanRestPeriods(rest.rest_periods),
         ingredient_groups: await linkIngredients(supabase, rest.ingredient_groups),
+        ...(rest.method_links ? { method_links: cleanMethodLinks(rest.method_links) } : {}),
       };
 
       // Update recipe row

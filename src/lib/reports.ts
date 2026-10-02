@@ -6,6 +6,8 @@ import type { RecipeSummary } from '@/types/recipe';
 
 export interface ReportRecipe extends RecipeSummary {
   published_at: string;
+  /** Ingredients the method doesn't mention, and words that could be two (absent before migration 030) */
+  method_issues?: number;
 }
 
 export interface ReportInput {
@@ -139,7 +141,8 @@ export function buildReport(input: ReportInput, now: Date = new Date()): Report 
 
   // ── Recipe health ──
   const paired = new Set(pairings.flatMap((p) => [p.recipe_id, p.accompanying_id]));
-  const checks: { key: string; label: string; why: string; failing: (r: ReportRecipe) => boolean }[] = [
+  // `refinement` checks are listed but don't stop a recipe counting as complete
+  const checks: { key: string; label: string; why: string; failing: (r: ReportRecipe) => boolean; refinement?: boolean }[] = [
     {
       key: 'photo',
       label: 'No photo',
@@ -176,6 +179,13 @@ export function buildReport(input: ReportInput, now: Date = new Date()): Report 
       why: 'The meal planner pairs dishes using these; recipe pages show nothing to go with them.',
       failing: (r) => !paired.has(r.id),
     },
+    {
+      key: 'method',
+      label: 'Method needs checking',
+      why: 'Some ingredients aren\u2019t mentioned in the steps, or a word could mean two of them, so visitors can\u2019t tap them for amounts. Fix in the recipe\u2019s Method section.',
+      failing: (r) => (r.method_issues ?? 0) > 0,
+      refinement: true,
+    },
   ];
   const issues: HealthIssue[] = checks
     .map((c) => ({
@@ -188,7 +198,7 @@ export function buildReport(input: ReportInput, now: Date = new Date()): Report 
         .sort((a, b) => a.title.localeCompare(b.title)),
     }))
     .filter((i) => i.recipes.length > 0);
-  const complete = recipes.filter((r) => checks.every((c) => !c.failing(r))).length;
+  const complete = recipes.filter((r) => checks.every((c) => c.refinement || !c.failing(r))).length;
 
   // ── Coverage ──
   const bands: [string, string, (t: number | null) => boolean][] = [

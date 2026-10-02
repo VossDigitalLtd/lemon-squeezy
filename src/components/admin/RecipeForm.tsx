@@ -35,6 +35,8 @@ import type {
   MethodGroup,
 } from '@/types/recipe';
 import { IngredientPicker } from './IngredientPicker';
+import { MethodCheckPanel } from '@/components/admin/MethodCheckPanel';
+import { EMPTY_METHOD_LINKS } from '@/lib/methodLinks';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -61,6 +63,7 @@ function emptyFormData(): RecipeFormData {
     rest_periods: [],
     ingredient_groups: [{ group_title: '', items: [{ ...EMPTY_INGREDIENT }] }],
     method_groups: [{ group_title: '', items: [''] }],
+    method_links: EMPTY_METHOD_LINKS,
     serving_suggestions: '',
     tips: '',
     course_category_ids: [],
@@ -90,6 +93,7 @@ function recipeToFormData(recipe: Recipe): RecipeFormData {
     method_groups: recipe.method_groups.length > 0
       ? recipe.method_groups
       : [{ group_title: '', items: [''] }],
+    method_links: recipe.method_links ?? EMPTY_METHOD_LINKS,
     serving_suggestions: recipe.serving_suggestions,
     tips: recipe.tips,
     published_at: recipe.published_at || undefined,
@@ -319,6 +323,17 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
           items: g.items.filter((s) => s.trim()),
         }))
         .filter((g) => g.items.length > 0),
+    };
+    // Corrections only for ingredients still in the recipe
+    const ids = new Set(cleanForm.ingredient_groups.flatMap((g) => g.items.map((i) => i.ingredient_id)).filter(Boolean));
+    const links = form.method_links ?? EMPTY_METHOD_LINKS;
+    cleanForm.method_links = {
+      phrases: links.phrases.flatMap((p) => {
+        if (!p.ingredient_ids.length) return [p]; // "not an ingredient"
+        const kept = p.ingredient_ids.filter((id) => ids.has(id));
+        return kept.length ? [{ ...p, ingredient_ids: kept }] : [];
+      }),
+      not_in_method: links.not_in_method.filter((id) => ids.has(id)),
     };
 
     setSaving(true);
@@ -643,6 +658,13 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
           <Plus size={12} className="mr-1" />
           Add Method Group
         </Button>
+
+        <MethodCheckPanel
+          ingredients={form.ingredient_groups}
+          method={form.method_groups}
+          links={form.method_links ?? EMPTY_METHOD_LINKS}
+          onChange={(method_links) => setForm((prev) => ({ ...prev, method_links }))}
+        />
       </Section>
 
       {/* ── Serving Suggestions & Tips ── */}
