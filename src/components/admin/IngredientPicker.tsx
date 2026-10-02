@@ -3,7 +3,7 @@
 import { useId, useMemo, useRef, useState } from 'react';
 import { Link2, Plus, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { parseIngredientName } from '@/lib/ingredientMatch';
+import { parseIngredientName, singular as singularWord } from '@/lib/ingredientMatch';
 import { cn } from '@/utils/cn';
 import type { LibraryIngredient } from '@/types/recipe';
 
@@ -26,6 +26,7 @@ export function IngredientPicker({ name, ingredientId, library, onChange, onCrea
   const listId = useId();
   const [active, setActive] = useState(0);
   const [creating, setCreating] = useState(false);
+  const [edited, setEdited] = useState(false);
   const blurTimer = useRef<number | null>(null);
 
   const linked = ingredientId ? library.find((i) => i.id === ingredientId) : undefined;
@@ -44,6 +45,11 @@ export function IngredientPicker({ name, ingredientId, library, onChange, onCrea
       .sort((a, b) => a.score - b.score || (b.i.recipe_count ?? 0) - (a.i.recipe_count ?? 0) || a.i.name.localeCompare(b.i.name));
     return scored.slice(0, 8).map((x) => x.i);
   }, [library, query, core]);
+
+  // Retyped so it no longer names what the line is linked to ("olive oil salt and pepper" → "salt and pepper")
+  const drifted =
+    edited && !!linked && !!core &&
+    !linked.name.toLowerCase().split(/\s+/).every((w) => w.length < 3 || w === 'and' || core.includes(singularWord(w)));
 
   // Best guess shown when a typed name isn't linked yet
   const exact = !linked && core ? library.find((i) => i.name.toLowerCase() === core) : undefined;
@@ -69,7 +75,11 @@ export function IngredientPicker({ name, ingredientId, library, onChange, onCrea
       <Input
         value={name}
         onChange={(e) => {
-          onChange({ name: e.target.value, ingredient_id: ingredientId });
+          // Retyped as another library ingredient ("salt and pepper"): link to that one instead
+          const typed = parseIngredientName(e.target.value).core;
+          const match = typed ? library.find((i) => i.name.toLowerCase() === typed) : undefined;
+          onChange({ name: e.target.value, ingredient_id: match?.id ?? ingredientId });
+          setEdited(true);
           setOpen(true);
           setActive(0);
         }}
@@ -95,7 +105,7 @@ export function IngredientPicker({ name, ingredientId, library, onChange, onCrea
         placeholder="Ingredient, e.g. chicken breast"
         className="h-8 text-sm"
         role="combobox"
-          aria-controls={listId}
+        aria-controls={listId}
         aria-expanded={open && suggestions.length > 0}
         aria-autocomplete="list"
       />
@@ -122,8 +132,14 @@ export function IngredientPicker({ name, ingredientId, library, onChange, onCrea
       {/* What this line is linked to */}
       <div className="mt-1 flex min-h-5 flex-wrap items-center gap-2 text-xs">
         {linked ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-viz-good/12 px-2 py-0.5 text-viz-good">
-            <Link2 size={11} /> {linked.name}
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5',
+              drifted ? 'bg-viz-attention/12 text-viz-attention' : 'bg-viz-good/12 text-viz-good'
+            )}
+            title={drifted ? 'The wording has changed. Check this is still the right ingredient.' : undefined}
+          >
+            <Link2 size={11} /> {drifted ? `Still linked to ${linked.name}` : linked.name}
             <button type="button" onClick={() => onChange({ name })} aria-label="Unlink from the library" className="ml-0.5 hover:text-foreground">
               <X size={11} />
             </button>
