@@ -18,7 +18,8 @@ export async function GET() {
   const list = await ShoppingListService.get(supabase, user.id);
   if (!list.success) return apiError(list.error!, 500);
   const recipes = await ShoppingListService.loadRecipes(supabase, list.data!.recipes.map((r) => r.recipe_id));
-  return ok({ data: { list: list.data, recipes } });
+  const library = await ShoppingListService.loadLibrary(supabase, recipes);
+  return ok({ data: { list: list.data, recipes, library } });
 }
 
 /** PUT /api/shopping-list — replace the whole list (recipes, ticks, own items) */

@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { RecipeService } from '@/lib/supabase/services';
 import { LogoMark, LogoTimer, LaceBand } from '@/components/brand';
 import { getImageUrl, textToHtml } from '@/lib/recipes';
-import { displayIngredient, formatAmount } from '@/lib/units';
+import { displayIngredient, formatAmount, ingredientLabel } from '@/lib/units';
 import { formatMinutesLong, formatMinutesShort } from '@/lib/time';
 import { restNoun, describeRests, timeSequence } from '@/lib/rest';
 import { PrintToolbar } from './PrintToolbar';
@@ -122,7 +122,7 @@ export default async function PrintRecipePage({ params, searchParams }: PageProp
                         <span className="mt-[5px] size-[7px] flex-shrink-0 rounded-full border border-[#999]" aria-hidden="true" />
                         <span>
                           {amount && <b className="font-semibold">{amount} </b>}
-                          {shown.name}
+                          {ingredientLabel(shown)}
                         </span>
                       </li>
                     );

@@ -77,3 +77,32 @@ describe('combineIngredients', () => {
     expect(text).not.toContain('Salt');
   });
 });
+
+describe('combineIngredients with the ingredient library', () => {
+  const fajitas = recipe('fajitas', 4, [{ quantity: 500, unit: 'g', name: 'chicken breast', note: 'diced', ingredient_id: 'chicken' }]);
+  const stirFry = recipe('stir-fry', 2, [{ quantity: 2, unit: null, name: 'chicken breasts', note: 'thinly sliced', ingredient_id: 'chicken' }]);
+  const curry = recipe('curry', 4, [{ quantity: 300, unit: 'g', name: 'chicken breast fillets', ingredient_id: 'chicken' }]);
+  const library = new Map([['chicken', { name: 'Chicken breast', category: 'meat-fish' as const }]]);
+
+  it('combines differently written lines for the same entry, by kind of measure', () => {
+    const lines = combineIngredients(
+      [
+        { recipe: fajitas, servings: 4 },
+        { recipe: stirFry, servings: 2 },
+        { recipe: curry, servings: 4 },
+      ],
+      library
+    );
+    expect(lines.map((l) => [l.name, l.ingredient.quantity, l.ingredient.unit, l.aisle])).toEqual([
+      ['Chicken breast', 800, 'g', 'meat-fish'],
+      ['Chicken breast', 2, null, 'meat-fish'],
+    ]);
+    expect(lines[0].notes).toEqual(['diced']);
+    expect(lines[0].recipes).toEqual(['Curry', 'Fajitas']);
+  });
+
+  it('guesses an aisle for lines not in the library', () => {
+    const [line] = combineIngredients([{ recipe: recipe('x', 1, [{ quantity: 1, unit: null, name: 'red onion' }]), servings: 1 }]);
+    expect(line.aisle).toBe('fruit-veg');
+  });
+});

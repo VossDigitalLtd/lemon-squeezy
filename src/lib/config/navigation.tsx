@@ -8,6 +8,7 @@ import {
   Globe,
   BarChart3,
   Star,
+  Carrot,
 } from 'lucide-react';
 import { features } from './app';
 
@@ -23,6 +24,7 @@ export const MAIN_NAV_LINKS: NavLink[] = [
   { href: '/admin', icon: <LayoutDashboard size={18} />, label: 'Dashboard', exact: true },
   { href: '/admin/recipes', icon: <UtensilsCrossed size={18} />, label: 'Recipes' },
   { href: '/admin/categories', icon: <Tags size={18} />, label: 'Categories' },
+  { href: '/admin/ingredients', icon: <Carrot size={18} />, label: 'Ingredients' },
   { href: '/admin/featured', icon: <Star size={18} />, label: 'Recipe of the week' },
   { href: '/admin/reports', icon: <BarChart3 size={18} />, label: 'Reports' },
   { href: '/admin/users', icon: <Users size={18} />, label: 'Users', minRole: 'admin' },

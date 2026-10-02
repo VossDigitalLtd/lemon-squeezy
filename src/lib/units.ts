@@ -72,6 +72,8 @@ export interface Ingredient {
   quantity: number | null;
   unit: UnitKey | null;
   name: string;
+  ingredient_id?: string;
+  note?: string;
 }
 
 /** Scale an ingredient for a different serving size. */
@@ -175,7 +177,13 @@ function nearestFraction(n: number): number {
 /** Format an ingredient for display: "2 tbsp olive oil" or "Salt to taste" */
 export function formatIngredient(ingredient: Ingredient): string {
   const amount = formatAmount(ingredient);
-  return amount ? `${amount} ${ingredient.name}` : ingredient.name;
+  const name = ingredientLabel(ingredient);
+  return amount ? `${amount} ${name}` : name;
+}
+
+/** Name plus any preparation note: "chicken breast, diced" */
+export function ingredientLabel(ingredient: Pick<Ingredient, 'name' | 'note'>): string {
+  return ingredient.note?.trim() ? `${ingredient.name}, ${ingredient.note.trim()}` : ingredient.name;
 }
 
 /** Just the quantity and unit: "2 tbsp", "1½ kg", "3" or "" */

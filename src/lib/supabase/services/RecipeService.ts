@@ -16,6 +16,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { BaseQueryService } from '../core/BaseQueryService';
 import { weekStartOf } from '@/lib/weeks';
 import { cleanRestPeriods, type RestPeriod } from '@/lib/rest';
+import { parseIngredientName } from '@/lib/ingredientMatch';
 import type { ServiceResponse } from '@/types';
 import type {
   Recipe,
@@ -29,7 +30,8 @@ export const RECIPE_SUMMARY_SELECT = `
   id, uid, title, subtitle, short_description,
   feature_image_path, feature_image_alt,
   prep_time, cook_time, rest_time, total_time,
-  recipe_categories(category:categories(id, type, uid, title))
+  recipe_categories(category:categories(id, type, uid, title)),
+  recipe_ingredients(ingredient_id)
 `;
 
 const RECIPE_FULL_SELECT = `
@@ -72,6 +74,7 @@ export interface RawRecipeRow {
   created_at?: string;
   updated_at?: string;
   recipe_categories: { category: Category }[];
+  recipe_ingredients?: { ingredient_id: string }[];
   recipe_accompanying?: { accompanying: RawRecipeRow }[];
 }
 
@@ -101,6 +104,7 @@ export function toRecipeSummary(row: RawRecipeRow): RecipeSummary {
     rest_time: row.rest_time ?? null,
     total_time: row.total_time ?? null,
     ...transformCategories(row),
+    ingredient_ids: (row.recipe_ingredients || []).map((ri) => ri.ingredient_id),
   };
 }
 
@@ -358,7 +362,11 @@ class RecipeServiceClass extends BaseQueryService {
         accompanying_recipe_ids,
         ...rest
       } = formData;
-      const recipeData = { ...rest, rest_periods: cleanRestPeriods(rest.rest_periods) };
+      const recipeData = {
+        ...rest,
+        rest_periods: cleanRestPeriods(rest.rest_periods),
+        ingredient_groups: await linkIngredients(supabase, rest.ingredient_groups),
+      };
 
       // Insert recipe
       const { data: recipe, error } = await supabase
@@ -377,6 +385,7 @@ class RecipeServiceClass extends BaseQueryService {
       const recipeId = recipe.id;
 
       // Insert junction rows
+      await this._syncIngredients(supabase, recipeId, recipeData.ingredient_groups);
       await this._syncJunctions(supabase, recipeId, {
         course_category_ids,
         cuisine_category_ids,
@@ -410,7 +419,11 @@ class RecipeServiceClass extends BaseQueryService {
         accompanying_recipe_ids,
         ...rest
       } = formData;
-      const recipeData = { ...rest, rest_periods: cleanRestPeriods(rest.rest_periods) };
+      const recipeData = {
+        ...rest,
+        rest_periods: cleanRestPeriods(rest.rest_periods),
+        ingredient_groups: await linkIngredients(supabase, rest.ingredient_groups),
+      };
 
       // Update recipe row
       const { error } = await supabase
@@ -421,6 +434,7 @@ class RecipeServiceClass extends BaseQueryService {
       if (error) throw error;
 
       // Replace junction rows
+      await this._syncIngredients(supabase, id, recipeData.ingredient_groups);
       await this._syncJunctions(supabase, id, {
         course_category_ids,
         cuisine_category_ids,
@@ -497,6 +511,15 @@ class RecipeServiceClass extends BaseQueryService {
     }
   }
 
+  /** Keep recipe_ingredients in step with the library links in the ingredient list */
+  private async _syncIngredients(supabase: SupabaseClient, recipeId: string, groups: Recipe['ingredient_groups']): Promise<void> {
+    const ids = [...new Set(groups.flatMap((g) => g.items.map((i) => i.ingredient_id).filter((id): id is string => !!id)))];
+    await supabase.from('recipe_ingredients').delete().eq('recipe_id', recipeId);
+    if (ids.length) {
+      await supabase.from('recipe_ingredients').insert(ids.map((ingredient_id) => ({ recipe_id: recipeId, ingredient_id })));
+    }
+  }
+
   /**
    * Delete/reinsert junction rows for categories and accompanying recipes.
    * This "replace all" strategy is simpler and atomic for small sets.
@@ -542,3 +565,31 @@ class RecipeServiceClass extends BaseQueryService {
 
 export const RecipeService = new RecipeServiceClass();
 export default RecipeService;
+
+/**
+ * Give every ingredient line a library link: lines the editor picked keep
+ * theirs; typed names are matched to an entry by name or other name. Lines
+ * that match nothing are left unlinked (the admin Ingredients page lists them).
+ */
+async function linkIngredients(supabase: SupabaseClient, groups: Recipe['ingredient_groups']): Promise<Recipe['ingredient_groups']> {
+  const unlinked = [...new Set(groups.flatMap((g) => g.items.filter((i) => !i.ingredient_id && i.name?.trim()).map((i) => i.name.trim())))];
+  if (!unlinked.length) return groups;
+
+  const keyFor = (name: string) => [name.toLowerCase(), parseIngredientName(name).core].filter(Boolean);
+  const keys = [...new Set(unlinked.flatMap(keyFor))];
+  const [{ data: byAlias }, { data: byName }] = await Promise.all([
+    supabase.from('ingredient_aliases').select('alias, ingredient_id').in('alias', keys),
+    supabase.from('ingredients').select('id, name'),
+  ]);
+  const lookup = new Map<string, string>((byAlias || []).map((a) => [a.alias as string, a.ingredient_id as string]));
+  for (const i of byName || []) lookup.set((i.name as string).toLowerCase(), i.id as string);
+
+  return groups.map((g) => ({
+    ...g,
+    items: g.items.map((item) => {
+      if (item.ingredient_id || !item.name?.trim()) return item;
+      const id = keyFor(item.name.trim()).map((k) => lookup.get(k)).find(Boolean);
+      return id ? { ...item, ingredient_id: id } : item;
+    }),
+  }));
+}

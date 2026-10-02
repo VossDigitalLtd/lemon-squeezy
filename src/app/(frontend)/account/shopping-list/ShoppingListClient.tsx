@@ -8,7 +8,8 @@ import { AccountPageHeader, FormError, pillButton } from '@/components/account/A
 import { LogoMark } from '@/components/brand';
 import { useToast } from '@/hooks/useToast';
 import { getImageUrl } from '@/lib/recipes';
-import { combineIngredients, formatLine, listAsText, type ListRecipe } from '@/lib/shoppingList';
+import { combineIngredients, formatLine, listAsText, type ListRecipe, type LibraryLookup, type ShoppingLine } from '@/lib/shoppingList';
+import { AISLES, AISLE_LABELS, type Aisle } from '@/lib/ingredientMatch';
 import type { ShoppingListDoc } from '@/lib/supabase/services/ShoppingListService';
 import { cn } from '@/utils/cn';
 
@@ -16,6 +17,7 @@ export default function ShoppingListClient() {
   const { addToast } = useToast();
   const [doc, setDoc] = useState<ShoppingListDoc | null>(null);
   const [recipes, setRecipes] = useState<ListRecipe[]>([]);
+  const [library, setLibrary] = useState<LibraryLookup>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [system, setSystem] = useState<'metric' | 'imperial'>('metric');
   const [newItem, setNewItem] = useState('');
@@ -29,6 +31,7 @@ export default function ShoppingListClient() {
         if (!r.ok) throw new Error(json.error || 'Failed to load your shopping list');
         setDoc(json.data.list);
         setRecipes(json.data.recipes);
+        setLibrary(new Map((json.data.library ?? []).map((e: { id: string; name: string; category: Aisle }) => [e.id, { name: e.name, category: e.category }])));
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load your shopping list'));
   }, []);
@@ -58,9 +61,11 @@ export default function ShoppingListClient() {
     () => (doc?.recipes ?? []).filter((r) => byId.has(r.recipe_id)).map((r) => ({ recipe: byId.get(r.recipe_id)!, servings: r.servings })),
     [doc, byId]
   );
-  const lines = useMemo(() => combineIngredients(entries), [entries]);
+  const lines = useMemo(() => combineIngredients(entries, library), [entries, library]);
   const checked = useMemo(() => new Set(doc?.checked ?? []), [doc]);
   const toBuy = lines.filter((l) => !checked.has(l.key));
+  // Grouped by supermarket aisle, in walking-round-the-shop order
+  const toBuyByAisle = AISLES.map((aisle) => [aisle, toBuy.filter((l) => l.aisle === aisle)] as [Aisle, ShoppingLine[]]).filter(([, ls]) => ls.length);
   const inBasket = lines.filter((l) => checked.has(l.key));
   const extras = doc?.extras ?? [];
   const isEmpty = entries.length === 0 && extras.length === 0;
@@ -245,10 +250,24 @@ export default function ShoppingListClient() {
             <h2 id="to-buy" className="mb-3 font-display text-2xl">
               To buy <span className="font-sans text-base text-muted-foreground tabular-nums">({toBuy.length + extras.filter((e) => !e.checked).length})</span>
             </h2>
+            {toBuyByAisle.map(([aisle, aisleLines]) => (
+              <div key={aisle} className="mb-4 break-inside-avoid">
+                <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{AISLE_LABELS[aisle]}</h3>
+                <ul className="divide-y divide-border rounded-2xl border border-border bg-card px-4 print:border-0 print:px-0">
+                  {aisleLines.map((line) => (
+                    <ListRow
+                      key={line.key}
+                      checked={false}
+                      onToggle={() => toggleLine(line.key)}
+                      {...formatLine(line, system)}
+                      note={[line.recipes.join(', '), line.notes.join(', ')].filter(Boolean).join(' · ')}
+                    />
+                  ))}
+                </ul>
+              </div>
+            ))}
+            <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground print:hidden">Your own items</h3>
             <ul className="divide-y divide-border rounded-2xl border border-border bg-card px-4 print:border-0 print:px-0">
-              {toBuy.map((line) => (
-                <ListRow key={line.key} checked={false} onToggle={() => toggleLine(line.key)} {...formatLine(line, system)} note={line.recipes.join(', ')} />
-              ))}
               {extras
                 .filter((e) => !e.checked)
                 .map((e) => (

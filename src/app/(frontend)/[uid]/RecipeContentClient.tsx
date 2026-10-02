@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Minus, Plus, Check, Printer } from 'lucide-react';
-import { displayIngredient, formatAmount } from '@/lib/units';
+import { displayIngredient, formatAmount, ingredientLabel } from '@/lib/units';
 import { splitStepDurations } from '@/lib/time';
 import { StepTimer } from '@/components/recipe/StepTimer';
 import { AddToListButton } from '@/components/recipe/AddToListButton';
@@ -130,7 +130,7 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
                       )}
                       {/* No quantity (e.g. "Salt and pepper") never changes, so the name can use the space */}
                       <span className={cn(!qty && 'col-span-2', isTicked && 'text-muted-foreground line-through')}>
-                        {shown.name}
+                        {ingredientLabel(shown)}
                       </span>
                     </label>
                   </li>

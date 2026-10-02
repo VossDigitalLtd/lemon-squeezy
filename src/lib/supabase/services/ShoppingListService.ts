@@ -82,6 +82,14 @@ class ShoppingListServiceClass {
     return this.save(supabase, userId, { ...current.data!, recipes: [...byId.values()] });
   }
 
+  /** Library names and aisles for the ingredient ids used by these recipes */
+  async loadLibrary(supabase: SupabaseClient, recipes: ListRecipe[]): Promise<{ id: string; name: string; category: string }[]> {
+    const ids = [...new Set(recipes.flatMap((r) => r.ingredient_groups.flatMap((g) => g.items.map((i) => i.ingredient_id).filter(Boolean) as string[])))];
+    if (!ids.length) return [];
+    const { data } = await supabase.from('ingredients').select('id, name, category').in('id', ids);
+    return (data || []) as { id: string; name: string; category: string }[];
+  }
+
   /** The recipe details needed to build the list */
   async loadRecipes(supabase: SupabaseClient, ids: string[]): Promise<ListRecipe[]> {
     if (!ids.length) return [];

@@ -23,6 +23,21 @@ export interface Ingredient {
   quantity: number | null;
   unit: UnitKey | null;
   name: string;
+  /** Library entry this line is (see ingredients table) */
+  ingredient_id?: string;
+  /** Preparation: "diced", "thinly sliced" — shown after the name */
+  note?: string;
+}
+
+/** An entry in the ingredient library */
+export interface LibraryIngredient {
+  id: string;
+  name: string;
+  slug: string;
+  category: import('@/lib/ingredientMatch').Aisle;
+  is_staple: boolean;
+  /** Number of recipes using it (when requested) */
+  recipe_count?: number;
 }
 
 export interface IngredientGroup {
@@ -88,6 +103,8 @@ export interface RecipeSummary {
   course_categories: Category[];
   cuisine_categories: Category[];
   dietary_categories: Category[];
+  /** Library ingredients used (for filtering by ingredient) */
+  ingredient_ids?: string[];
 }
 
 // ─── Form data (admin create/edit) ───────────────────────────────────────────

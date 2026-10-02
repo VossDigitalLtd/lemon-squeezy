@@ -1,4 +1,5 @@
 import { UNITS, displayIngredient, formatAmount, scaleIngredient, type UnitKey } from '@/lib/units';
+import { guessAisle, parseIngredientName, type Aisle } from '@/lib/ingredientMatch';
 import type { Ingredient, IngredientGroup } from '@/types/recipe';
 
 // ─── Shopping list: combining ingredients across recipes ────────────────────
@@ -23,6 +24,10 @@ export interface ShoppingLine {
   /** Stable key for ticking off: same ingredient + same kind of measure */
   key: string;
   name: string;
+  /** Supermarket aisle, for grouping the list */
+  aisle: Aisle;
+  /** Preparation notes from the recipes ("diced", "thinly sliced") */
+  notes: string[];
   /** Combined quantity and unit, ready to format (null quantity = "to taste" style) */
   ingredient: Ingredient;
   /** Titles of the recipes this line is for */
@@ -68,9 +73,20 @@ export function ingredientKey(name: string): string {
   return n.replace(/(?<=[a-z]{3})s\b/g, '');
 }
 
-/** Combine ingredients from every recipe on the list into one set of lines */
-export function combineIngredients(entries: ListEntry[]): ShoppingLine[] {
-  const lines = new Map<string, { name: string; family: Family; unit: UnitKey | null; amount: number; recipes: Set<string> }>();
+/** Library entries the list can use for names and aisles */
+export type LibraryLookup = Map<string, { name: string; category: Aisle }>;
+
+/**
+ * Combine ingredients from every recipe on the list into one set of lines.
+ * Lines linked to the ingredient library combine by entry (so "chicken
+ * breast, diced" and "chicken breasts thinly sliced" are one line); others
+ * fall back to matching their names.
+ */
+export function combineIngredients(entries: ListEntry[], library: LibraryLookup = new Map()): ShoppingLine[] {
+  const lines = new Map<
+    string,
+    { name: string; aisle: Aisle; family: Family; unit: UnitKey | null; amount: number; recipes: Set<string>; notes: Set<string> }
+  >();
 
   for (const { recipe, servings } of entries) {
     const base = recipe.servings || servings || 1;
@@ -79,10 +95,20 @@ export function combineIngredients(entries: ListEntry[]): ShoppingLine[] {
         if (!raw.name?.trim()) continue;
         const item = scaleIngredient(raw, base, servings);
         const family = familyOf(item);
-        const key = `${ingredientKey(item.name)}|${family}`;
-        const line = lines.get(key) ?? { name: item.name.trim(), family, unit: item.unit, amount: 0, recipes: new Set<string>() };
+        const entry = item.ingredient_id ? library.get(item.ingredient_id) : undefined;
+        const key = `${entry ? `id:${item.ingredient_id}` : ingredientKey(item.name)}|${family}`;
+        const line = lines.get(key) ?? {
+          name: entry?.name ?? item.name.trim(),
+          aisle: entry?.category ?? guessAisle(parseIngredientName(item.name).core),
+          family,
+          unit: item.unit,
+          amount: 0,
+          recipes: new Set<string>(),
+          notes: new Set<string>(),
+        };
         line.amount += toBase(item, family);
         line.recipes.add(recipe.title);
+        if (item.note?.trim()) line.notes.add(item.note.trim());
         lines.set(key, line);
       }
     }
@@ -98,7 +124,7 @@ export function combineIngredients(entries: ListEntry[]): ShoppingLine[] {
       } else {
         ingredient = { quantity: Math.round(l.amount * 100) / 100, unit: fromBase(l.amount, l.family, l.unit), name: l.name };
       }
-      return { key, name: l.name, ingredient, recipes: [...l.recipes].sort() };
+      return { key, name: l.name, aisle: l.aisle, ingredient, recipes: [...l.recipes].sort(), notes: [...l.notes] };
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
 }
