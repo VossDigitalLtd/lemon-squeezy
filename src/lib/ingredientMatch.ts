@@ -31,29 +31,35 @@ const PREP_WORDS = [
   'peeled', 'deseeded', 'seeded', 'halved', 'quartered', 'torn', 'shredded', 'crumbled', 'beaten', 'melted',
   'softened', 'cooked', 'uncooked', 'drained', 'rinsed', 'trimmed', 'washed', 'fresh', 'freshly', 'large',
   'medium', 'small', 'ripe', 'boneless', 'skinless', 'bone-in', 'skin-on', 'whole', 'extra', 'heaped', 'level',
-  'good', 'quality', 'approx', 'about', 'optional', 'unwaxed',
+  'good', 'quality', 'approx', 'about', 'optional', 'unwaxed', 'boiled', 'generous', 'rashers', 'rasher',
 ];
 const PREP_PHRASES = [
   'skin on', 'bone in', 'at room temperature', 'room temperature', 'to serve', 'for serving', 'to taste',
   'for frying', 'for greasing', 'for seasoning', 'for roasting', 'for drizzling', 'for dusting', 'to garnish',
   'for garnish', 'for the top', 'drained and rinsed', 'with no added salt', 'no added salt', 'very ripe',
-  'medium-sized', 'separated', 'squeezed', 'lots of',
+  'medium-sized', 'separated', 'squeezed', 'lots of', 'to season', 'for seasoning',
 ];
 /** Phrases that run to the end of the name and are instructions: "cut into 2cm chunks", "made up with 350ml water" */
-const TRAILING_INSTRUCTIONS = /\s+(?:cut into|made up with|made with|mixed with|to make|plus extra|plus more)\b.*$/;
+const TRAILING_INSTRUCTIONS = /\s+(?:cut into|made up with|made with|mixed with|to make|plus extra|plus more|but|if you)\b.*$/;
 const PART_PHRASES: [RegExp, string][] = [
   [/^(?:a\s+)?squeeze of\s+/, 'juice'],
   [/^juice of\s+/, 'juice'],
   [/^zest of\s+/, 'zest'],
   [/^zest and juice of\s+/, 'zest and juice'],
 ];
-const CONTAINERS = /^(?:a\s+)?(?:can|cans|tin|tins|jar|jars|pack|packs|packet|packets|bag|bags|bunch|handful|pinch|splash|drizzle|dash|knob|sprig|sprigs|strip|strips|ball|balls)\s+(?:of\s+)?/;
+const CONTAINERS = /^(?:a\s+)?(?:(?:good|large|small|big|generous)\s+)?(?:can|cans|tin|tins|jar|jars|pack|packs|packet|packets|bag|bags|bunch|handful|pinch|splash|sprinkling|drizzle|dash|knob|sprig|sprigs|strip|strips|ball|balls)\s+(?:of\s+)?/;
 /** A measure at the start of the name: "tbsp olive oil", "cups of yoghurt", "x 397g condensed milk", "1tsp mustard" */
 const LEADING_MEASURE = /^(?:\d+(?:\.\d+)?\s*)?(?:x\s*)?(?:\d+\s*(?:g|kg|ml|l)\b\s*)?(?:tsp|tsps|teaspoons?|tbsp|tbsps|tablespoons?|cups?|g|kg|ml|l|oz|lb)\b\.?\s+(?:of\s+)?/;
 const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, half: 0.5, two: 2, three: 3, four: 4, five: 5, six: 6 };
 
 /** Simple English singular for the last word ("tomatoes" → "tomato", "berries" → "berry") */
+/** Brand names that are always plural */
+const PLURAL_NAMES = ['doritos', 'maltesers', 'minstrels', 'smarties', 'quavers', 'rolos', 'oreos'];
+
 export function singular(word: string): string {
+  if (PLURAL_NAMES.includes(word)) return word;
+  if (/(?:lea|loa|hal)ves$/.test(word)) return word.slice(0, -3) + 'f';
+  if (word.endsWith('chillies')) return word.slice(0, -2);
   if (word.length <= 3 || word.endsWith('ss') || /(?:us|is)$/.test(word)) return word;
   if (word.endsWith('ies')) return word.slice(0, -3) + 'y';
   if (/(?:oes|ches|shes|xes|sses)$/.test(word)) return word.slice(0, -2);
@@ -87,7 +93,7 @@ function parseLeadingQuantity(s: string): { quantity: number | null; rest: strin
     return { quantity: n, rest: s.slice(m[0].length) };
   }
   // "a squeeze of…", "a pinch of…" aren't quantities
-  const w = s.match(/^(a|an|one|half|two|three|four|five|six)\s+(?:a\s+)?(?!\d|squeeze|pinch|splash|handful|drizzle|dash|knob|few|little|bit)/);
+  const w = s.match(/^(a|an|one|half|two|three|four|five|six)\s+(?:a\s+)?(?!\d|(?:(?:good|large|small|big|generous)\s+)?(?:squeeze|pinch|splash|sprinkling|handful|drizzle|dash|knob)|few|little|bit)/);
   if (w) return { quantity: NUMBER_WORDS[w[1]], rest: s.slice(w[0].length) };
   const frac = s.match(/^(?:a\s+)?(\d)\/(\d)\s+/);
   if (frac) return { quantity: Number(frac[1]) / Number(frac[2]), rest: s.slice(frac[0].length) };
@@ -117,6 +123,14 @@ export function parseIngredientName(raw: string): ParsedName {
     s = s.slice(0, comma);
   }
 
+  // "a good pinch of…" is the amount, so it goes in the note; "can of…" doesn't need saying
+  const stripContainer = (text: string) => {
+    const m = text.match(CONTAINERS);
+    if (!m) return text;
+    if (/pinch|splash|sprinkling|handful|drizzle|dash|knob/.test(m[0])) notes.push(`a ${m[0].replace(/^a\s+/, '').replace(/\s+of\s*$/, '').trim()}`);
+    return text.slice(m[0].length);
+  };
+
   let quantity: number | null = null;
   ({ quantity, rest: s } = parseLeadingQuantity(s.trim()));
 
@@ -138,7 +152,7 @@ export function parseIngredientName(raw: string): ParsedName {
     s = s.slice(times[0].length);
   }
   s = s.replace(/^x\s*\d+(?:\.\d+)?\s*(?:g|kg|ml|l)\s+/, '');
-  s = s.replace(CONTAINERS, '');
+  s = stripContainer(s);
   // A measure at the start: keep its number and unit ("1tsp mustard", "2 tbsp oil")
   let unit: ParsedName['unit'];
   const measure = s.match(/^(\d+(?:\.\d+)?)?\s*(?:heaped\s+|level\s+|rounded\s+)?(tsps?|teaspoons?|tbsps?|tablespoons?|cups?|g|kg|ml|l|oz|lb)\b\.?\s+(?:of\s+)?/);
@@ -148,6 +162,7 @@ export function parseIngredientName(raw: string): ParsedName {
     s = s.slice(measure[0].length);
   }
   s = s.replace(LEADING_MEASURE, '').replace(/^x\s*\d+\s*(?:g|kg|ml|l)\s+/, '');
+  s = stripContainer(s);
   const instruction = s.match(TRAILING_INSTRUCTIONS);
   if (instruction) {
     notes.push(instruction[0].trim());
@@ -172,13 +187,14 @@ export function parseIngredientName(raw: string): ParsedName {
   while (kept.length && ['and', 'or', 'of', 'for', 'with'].includes(kept[kept.length - 1])) kept.pop();
   while (kept.length && ['and', 'or', 'of', 'a'].includes(kept[0])) kept.shift();
 
-  // "lime or lemon" → lime, noting "or lemon"
+  // The wording keeps the choice; the ingredient is the first option:
+  // "lime or lemon" → lime, "streaky or back bacon" → streaky bacon
+  const name = kept.join(' ').replace(/[.;:]+$/, '').trim();
   const orAt = kept.indexOf('or');
   if (orAt > 0 && orAt < kept.length - 1) {
-    notes.push(kept.slice(orAt).join(' '));
-    kept.splice(orAt);
+    if (orAt === 1 && kept.length - orAt > 2) kept.splice(1, 2);
+    else kept.splice(orAt);
   }
-  const name = kept.join(' ').replace(/[.;:]+$/, '').trim();
   if (kept.length) kept[kept.length - 1] = singular(kept[kept.length - 1]);
   let core = stripAccents(kept.join(' ').replace(/[.;:]+$/, '').trim());
   // "garlic cloves" is garlic, bought by the bulb
@@ -215,15 +231,15 @@ export function isStaple(core: string): boolean {
 /** A first guess at the aisle, to be checked on the admin page */
 export function guessAisle(core: string): Aisle {
   const has = (words: string[]) => words.some((w) => new RegExp(`\\b${w}`).test(core));
-  if (has(['frozen', 'ice cream'])) return 'frozen';
+  if (has(['frozen', 'ice cream', 'petit pois'])) return 'frozen';
   if (has(['bell pepper', 'green pepper', 'red pepper', 'yellow pepper', 'orange pepper', 'sweet pepper', 'romano pepper'])) return 'fruit-veg';
-  if (has(['powder', 'granule', 'ground', 'dried', 'flake', 'seed', 'spice', 'seasoning'])) return 'herbs-spices';
-  if (has(['stock', 'tinned', 'chopped tomato', 'passata', 'tomato puree', 'bean', 'chickpea', 'lentil', 'rice', 'pasta', 'orzo', 'spaghetti', 'noodle', 'flour', 'sugar', 'honey', 'syrup', 'oil', 'vinegar', 'sauce', 'ketchup', 'mayonnaise', 'mustard', 'paste', 'tahini', 'oat', 'biscuit', 'chocolate', 'cocoa', 'baking', 'yeast', 'nut', 'almond', 'cornflour', 'cornstarch', 'condensed milk', 'evaporated milk', 'curd', 'breadcrumb', 'coconut milk', 'raisin', 'sultana', 'jam', 'bulgur', 'couscous', 'gravy', 'stock cube', 'lazy garlic', 'lazy ginger', 'lazy chilli'])) return 'cupboard';
+  if (has(['powder', 'granule', 'ground', 'dried', 'flake', 'seed', 'spice', 'seasoning', 'cayenne', 'pul biber', 'bay leaf'])) return 'herbs-spices';
+  if (has(['stock', 'tinned', 'chopped tomato', 'passata', 'tomato puree', 'bean', 'chickpea', 'lentil', 'rice', 'pasta', 'orzo', 'spaghetti', 'noodle', 'flour', 'sugar', 'honey', 'syrup', 'oil', 'vinegar', 'sauce', 'ketchup', 'mayonnaise', 'mustard', 'paste', 'tahini', 'oat', 'biscuit', 'chocolate', 'cocoa', 'baking', 'yeast', 'nut', 'almond', 'cornflour', 'cornstarch', 'condensed milk', 'evaporated milk', 'curd', 'breadcrumb', 'coconut milk', 'raisin', 'sultana', 'jam', 'bulgur', 'couscous', 'gravy', 'stock cube', 'lazy garlic', 'lazy ginger', 'lazy chilli', 'macaroni', 'lasagne', 'bucatini', 'penne', 'fusilli', 'tagliatelle', 'linguine', 'gnocchi', 'extract', 'bicarbonate', 'sweetener', 'sriracha', 'doritos', 'maltesers', 'crunchie', 'kinder', 'crisps'])) return 'cupboard';
   if (has(['chicken', 'beef', 'lamb', 'pork', 'mince', 'sausage', 'chorizo', 'bacon', 'ham', 'prawn', 'salmon', 'cod', 'fish', 'tuna', 'sea bass', 'steak', 'turkey', 'duck', 'pancetta', 'salami'])) return 'meat-fish';
-  if (has(['milk', 'cream', 'butter', 'cheese', 'cheddar', 'feta', 'halloumi', 'mozzarella', 'parmesan', 'yoghurt', 'yogurt', 'egg', 'crème', 'creme', 'mascarpone', 'ricotta'])) return 'dairy-eggs';
+  if (has(['milk', 'cream', 'butter', 'cheese', 'cheddar', 'feta', 'halloumi', 'mozzarella', 'parmesan', 'yoghurt', 'yogurt', 'egg', 'crème', 'creme', 'mascarpone', 'ricotta', 'manchego', 'pecorino', 'gruyere', 'brie'])) return 'dairy-eggs';
   if (has(['bread', 'pitta', 'wrap', 'tortilla', 'bun', 'roll', 'naan', 'baguette', 'pastry'])) return 'bakery';
   if (has(['cumin', 'paprika', 'oregano', 'basil', 'parsley', 'coriander', 'mint', 'thyme', 'rosemary', 'dill', 'cinnamon', 'nutmeg', 'turmeric', 'chilli flake', 'chilli powder', 'curry powder', 'garam masala', 'seasoning', 'spice', 'bay leaf', 'pepper', 'salt', 'herb', 'sage', 'allspice', 'clove', 'cardamom'])) return 'herbs-spices';
-  if (has(['onion', 'garlic', 'potato', 'tomato', 'pepper', 'carrot', 'courgette', 'aubergine', 'spinach', 'lettuce', 'cucumber', 'lemon', 'lime', 'orange', 'apple', 'banana', 'berry', 'mushroom', 'celery', 'leek', 'ginger', 'chilli', 'avocado', 'broccoli', 'cabbage', 'kale', 'squash', 'pumpkin', 'sweetcorn', 'corn', 'spring onion', 'shallot', 'rocket', 'beetroot', 'olive', 'strawberr', 'grape', 'mango', 'pea'])) return 'fruit-veg';
-  if (has(['wine', 'beer', 'juice', 'cider', 'brandy', 'rum', 'vodka', 'gin'])) return 'drinks';
+  if (has(['onion', 'garlic', 'potato', 'tomato', 'pepper', 'carrot', 'courgette', 'aubergine', 'spinach', 'lettuce', 'cucumber', 'lemon', 'lime', 'orange', 'apple', 'banana', 'berry', 'mushroom', 'celery', 'leek', 'ginger', 'chilli', 'avocado', 'broccoli', 'cabbage', 'kale', 'squash', 'pumpkin', 'sweetcorn', 'corn', 'spring onion', 'shallot', 'rocket', 'beetroot', 'olive', 'strawberr', 'grape', 'mango', 'pea', 'asparagus'])) return 'fruit-veg';
+  if (has(['wine', 'beer', 'juice', 'cider', 'brandy', 'rum', 'vodka', 'gin', 'coke', 'cola', 'lemonade'])) return 'drinks';
   return 'other';
 }

@@ -46,8 +46,38 @@ it('handles packs, multipliers, alternatives and buying details', () => {
   expect(parseIngredientName('x 15g pack fresh oregano, leaves finely chopped')).toMatchObject({ core: 'oregano' });
   expect(parseIngredientName('x 4 pack of Crunchie bars (128g per pack)')).toMatchObject({ core: 'crunchie bar', quantity: 4 });
   expect(parseIngredientName('unwaxed lemons, zest of both')).toMatchObject({ core: 'lemon' });
-  expect(parseIngredientName('Juice of 1 lime or lemon')).toMatchObject({ core: 'lime', quantity: 1, note: 'juice, or lemon' });
-  expect(parseIngredientName('Zest of 1 orange or clementine')).toMatchObject({ core: 'orange', note: 'zest, or clementine' });
+  expect(parseIngredientName('Juice of 1 lime or lemon')).toMatchObject({ core: 'lime', name: 'lime or lemon', quantity: 1, note: 'juice' });
+  expect(parseIngredientName('Zest of 1 orange or clementine')).toMatchObject({ core: 'orange', note: 'zest' });
+});
+
+it('reads the wording found in the first library build', () => {
+  const core = (raw: string) => parseIngredientName(raw).core;
+  expect(parseIngredientName('good pinch chilli flakes')).toMatchObject({ core: 'chilli flake', name: 'chilli flakes', note: 'a good pinch' });
+  expect(parseIngredientName('Small handful of flat-leaf parsley chopped')).toMatchObject({ note: 'chopped, a small handful' });
+  expect(core('Large pinch of chilli flakes')).toBe('chilli flake');
+  expect(core('A sprinkling of smoked paprika')).toBe('smoked paprika');
+  expect(core('large splash Worcestershire sauce')).toBe('worcestershire sauce');
+  expect(core('Small handful of flat-leaf parsley chopped')).toBe('flat-leaf parsley');
+  expect(core('Salt & pepper to season')).toBe('salt and pepper');
+  expect(parseIngredientName('maltesers crushed but leave some whole')).toMatchObject({ core: 'maltesers', note: 'crushed, but leave some whole' });
+  expect(core('bag of Doritos')).toBe('doritos');
+  expect(core('bay leaves')).toBe('bay leaf');
+  expect(core('-2 whole red chillies deseeded and sliced')).toBe('red chilli');
+  expect(core('330ml can of coke')).toBe('coke');
+  expect(core('frozen boiled peas')).toBe('frozen pea');
+  expect(parseIngredientName('streaky or back bacon rashers')).toMatchObject({ core: 'streaky bacon', name: 'streaky or back bacon', note: 'rashers' });
+  expect(core('vegetable or chicken stock')).toBe('vegetable stock');
+  expect(core('goose or duck fat')).toBe('goose fat');
+  expect(parseIngredientName('a large onion')).toMatchObject({ core: 'onion', quantity: 1 });
+});
+
+it('guesses aisles for the entries that landed in Other', () => {
+  expect(guessAisle('asparagus')).toBe('fruit-veg');
+  expect(guessAisle('macaroni')).toBe('cupboard');
+  expect(guessAisle('cayenne')).toBe('herbs-spices');
+  expect(guessAisle('manchego')).toBe('dairy-eggs');
+  expect(guessAisle('petit pois')).toBe('frozen');
+  expect(guessAisle('bay leaf')).toBe('herbs-spices');
 });
 
 describe('singular', () => {
