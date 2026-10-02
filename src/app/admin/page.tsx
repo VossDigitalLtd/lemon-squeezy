@@ -49,7 +49,8 @@ function QuickAction({ title, description, href, icon: Icon }: QuickActionProps)
 
 interface StatCardProps {
   title: string;
-  value: string | null;
+  /** undefined while loading; null if it couldn't be loaded */
+  value: number | null | undefined;
   icon: LucideIcon;
   href?: string;
 }
@@ -62,10 +63,12 @@ function StatCard({ title, value, icon: Icon, href }: StatCardProps) {
       </div>
       <p className="text-sm font-medium text-muted-foreground">{title}</p>
       <p className="text-3xl font-bold text-foreground mt-1">
-        {value === null ? (
-          <span className="inline-block h-8 w-16 bg-muted animate-pulse rounded-md" />
+        {value === undefined ? (
+          <span className="inline-block h-8 w-16 bg-muted animate-pulse rounded-md" aria-label="Loading" />
+        ) : value === null ? (
+          <span className="text-muted-foreground" title="Couldn't load this count">–</span>
         ) : (
-          value
+          value.toLocaleString()
         )}
       </p>
     </div>
@@ -83,25 +86,35 @@ export default function AdminDashboard() {
   const isAdmin = role === 'admin' || role === 'super_admin';
   const firstName = profileName?.split(' ')[0] ?? 'there';
 
-  const [recipeCount, setRecipeCount] = useState<number | null>(null);
-  const [categoryCount, setCategoryCount] = useState<number | null>(null);
+  // undefined = still loading, null = couldn't load (shown as "–")
+  const [recipeCount, setRecipeCount] = useState<number | null | undefined>(undefined);
+  const [categoryCount, setCategoryCount] = useState<number | null | undefined>(undefined);
+  const [userCount, setUserCount] = useState<number | null | undefined>(undefined);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/recipe?limit=1').then((r) => (r.ok ? r.json() : null)),
-      fetch('/api/category').then((r) => (r.ok ? r.json() : null)),
-    ]).then(([recipeData, catData]) => {
-      if (recipeData?.pagination?.totalCount !== undefined) {
-        setRecipeCount(recipeData.pagination.totalCount);
-      }
-      if (catData?.data) {
-        const total = (catData.data.courses?.length || 0) +
-          (catData.data.cuisines?.length || 0) +
-          (catData.data.dietaries?.length || 0);
-        setCategoryCount(total);
-      }
-    }).catch(() => {});
+    const getJson = (url: string) =>
+      fetch(url, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+
+    getJson('/api/recipe?limit=1').then((json) => setRecipeCount(json?.pagination?.totalCount ?? null));
+
+    getJson('/api/category').then((json) => {
+      if (!json?.data) return setCategoryCount(null);
+      setCategoryCount(
+        (json.data.courses?.length || 0) + (json.data.cuisines?.length || 0) + (json.data.dietaries?.length || 0)
+      );
+    });
   }, []);
+
+  // Only admins can list users, so wait until the role is known
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch('/api/admin/users?limit=1', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => setUserCount(json?.pagination?.total ?? null))
+      .catch(() => setUserCount(null));
+  }, [isAdmin]);
 
   if (roleLoading) {
     return (
@@ -133,18 +146,18 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <StatCard
           title="Recipes"
-          value={recipeCount !== null ? String(recipeCount) : null}
+          value={recipeCount}
           icon={UtensilsCrossed}
           href="/admin/recipes"
         />
         <StatCard
           title="Categories"
-          value={categoryCount !== null ? String(categoryCount) : null}
+          value={categoryCount}
           icon={Tags}
           href="/admin/categories"
         />
         {isAdmin && (
-          <StatCard title="Users" value={null} icon={Users} href="/admin/users" />
+          <StatCard title="Users" value={userCount} icon={Users} href="/admin/users" />
         )}
       </div>
 
