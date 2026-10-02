@@ -5,6 +5,7 @@ import { LogoTimer } from '@/components/brand';
 import { cn } from '@/utils/cn';
 import type { Bucket, Report, ViewWeek } from '@/lib/reports';
 import { OpenHashDetails } from './OpenHashDetails';
+import { formatWeekRange } from '@/lib/weeks';
 
 /** The reports page body: headline numbers, saves, members, to-do list, coverage */
 export function ReportView({ report }: { report: Report }) {
@@ -244,32 +245,37 @@ export function ReportView({ report }: { report: Report }) {
               <p className="flex items-start gap-2 text-sm">
                 <Star size={16} className="mt-0.5 flex-shrink-0 fill-primary text-primary-foreground" />
                 <span>
-                <span className="text-muted-foreground">Now: </span>
-                <Link href={`/${featured.current.uid}`} className="font-medium hover:underline">
-                  {featured.current.title}
-                </Link>
-                <span className="text-muted-foreground"> (since {formatDate(featured.current.featured_from!)})</span>
+                  <span className="text-muted-foreground">This week: </span>
+                  <Link href={`/${featured.current.uid}`} className="font-medium hover:underline">
+                    {featured.current.title}
+                  </Link>
                 </span>
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Nothing set, so the homepage features the newest recipe with a photo. Set a date under Publishing on any recipe.
+                Nothing scheduled this week, so the homepage features the newest recipe with a photo.
               </p>
             )}
-            {featured.upcoming.length > 0 ? (
+            {featured.upcoming.length > 0 && (
               <ul className="mt-3 grid gap-1.5 text-sm">
-                {featured.upcoming.map(({ recipe, from }) => (
-                  <li key={recipe.id} className="flex justify-between gap-4">
-                    <Link href={`/admin/recipe/${recipe.id}/edit`} className="truncate hover:underline">
-                      {recipe.title}
-                    </Link>
-                    <span className="flex-shrink-0 tabular-nums text-muted-foreground">from {formatDate(from)}</span>
+                {featured.upcoming.slice(0, 4).map(({ recipe, weekStart }) => (
+                  <li key={weekStart} className="flex justify-between gap-4">
+                    <span className="truncate">{recipe.title}</span>
+                    <span className="flex-shrink-0 tabular-nums text-muted-foreground">{formatWeekRange(weekStart)}</span>
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p className="mt-3 text-sm text-muted-foreground">Nothing scheduled after that.</p>
             )}
+            <p className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className={featured.unscheduledNext8 ? 'text-viz-attention' : 'text-muted-foreground'}>
+                {featured.unscheduledNext8
+                  ? `${featured.unscheduledNext8} of the next 8 weeks still to plan`
+                  : 'The next 8 weeks are planned'}
+              </span>
+              <Link href="/admin/featured" className="font-medium underline decoration-primary decoration-2 underline-offset-4">
+                Plan weeks
+              </Link>
+            </p>
           </Card>
         </div>
       </Section>
@@ -289,10 +295,6 @@ const TONE: Record<Tone, { text: string; bg: string; soft: string; top: string }
   attention: { text: 'text-viz-attention', bg: 'bg-viz-attention', soft: 'bg-viz-attention/12', top: 'border-t-viz-attention' },
   good: { text: 'text-viz-good', bg: 'bg-viz-good', soft: 'bg-viz-good/12', top: 'border-t-viz-good' },
 };
-
-function formatDate(isoDate: string) {
-  return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 function Stat({
   tone,

@@ -57,8 +57,6 @@ export interface Recipe {
   method_groups: MethodGroup[];
   serving_suggestions: string;
   tips: string;
-  /** ISO date (YYYY-MM-DD) from which this is the recipe of the week */
-  featured_from: string | null;
   published_at: string;
   course_categories: Category[];
   cuisine_categories: Category[];
@@ -104,7 +102,6 @@ export interface RecipeFormData {
   method_groups: MethodGroup[];
   serving_suggestions: string;
   tips: string;
-  featured_from: string | null;
   published_at?: string;
   course_category_ids: string[];
   cuisine_category_ids: string[];

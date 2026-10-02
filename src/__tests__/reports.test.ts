@@ -21,7 +21,6 @@ function recipe(id: string, o: Partial<ReportRecipe> & { course?: string; cuisin
     cuisine_categories: cuisine ? [cat('cuisine', cuisine)] : [cat('cuisine', 'greek')],
     dietary_categories: [],
     published_at: '2026-01-01T00:00:00Z',
-    featured_from: null,
     ...rest,
   };
 }
@@ -102,21 +101,26 @@ describe('buildReport: coverage and featuring', () => {
     expect(report.coverage.added30).toBe(1);
   });
 
-  it('finds the current and upcoming recipe of the week', () => {
+  it('finds this week’s and upcoming scheduled recipes', () => {
     const r = buildReport(
       {
         ...input,
-        recipes: [
-          recipe('old', { featured_from: '2026-09-01' }),
-          recipe('now', { featured_from: '2026-09-28' }),
-          recipe('next', { featured_from: '2026-10-05' }),
-          recipe('nophoto', { featured_from: '2026-10-12', feature_image_path: null }),
+        schedule: [
+          { week_start: '2026-09-21', recipe_id: 'pie' }, // last week
+          { week_start: '2026-09-28', recipe_id: 'houmous' }, // this week
+          { week_start: '2026-10-12', recipe_id: 'fudge' },
+          { week_start: '2026-10-05', recipe_id: 'pie' },
+          { week_start: '2026-10-19', recipe_id: 'deleted' }, // recipe gone
         ],
       },
       now
     );
-    expect(r.featured.current?.id).toBe('now');
-    expect(r.featured.upcoming.map((u) => u.recipe.id)).toEqual(['next']);
+    expect(r.featured.current?.id).toBe('houmous');
+    expect(r.featured.upcoming.map((u) => [u.weekStart, u.recipe.id])).toEqual([
+      ['2026-10-05', 'pie'],
+      ['2026-10-12', 'fudge'],
+    ]);
+    expect(r.featured.unscheduledNext8).toBe(6);
   });
 });
 

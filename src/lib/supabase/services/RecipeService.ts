@@ -14,6 +14,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { BaseQueryService } from '../core/BaseQueryService';
+import { weekStartOf } from '@/lib/weeks';
 import type { ServiceResponse } from '@/types';
 import type {
   Recipe,
@@ -36,7 +37,7 @@ const RECIPE_FULL_SELECT = `
   prep_time, cook_time, total_time, servings, calories_per_serving,
   ingredient_groups, method_groups,
   serving_suggestions, tips,
-  featured_from, published_at,
+  published_at,
   created_at, updated_at,
   recipe_categories(category:categories(id, type, uid, title)),
   recipe_accompanying!recipe_accompanying_recipe_id_fkey(accompanying:recipes!recipe_accompanying_accompanying_id_fkey(
@@ -64,7 +65,6 @@ export interface RawRecipeRow {
   method_groups?: Recipe['method_groups'];
   serving_suggestions?: string;
   tips?: string;
-  featured_from?: string | null;
   published_at?: string;
   created_at?: string;
   updated_at?: string;
@@ -119,7 +119,6 @@ function toRecipe(row: RawRecipeRow): Recipe {
     method_groups: row.method_groups || [],
     serving_suggestions: row.serving_suggestions || '',
     tips: row.tips || '',
-    featured_from: row.featured_from ?? null,
     published_at: row.published_at || row.created_at || '',
     created_at: row.created_at || '',
     updated_at: row.updated_at || '',
@@ -226,28 +225,23 @@ class RecipeServiceClass extends BaseQueryService {
   }
 
   /**
-   * Recipe of the week: the recipe with the most recent featured_from on or
-   * before `today`. Falls back to the newest recipe with a photo.
+   * Recipe of the week: this week's entry in the featured schedule (see
+   * FeaturedService). Falls back to the newest recipe with a photo.
    */
-  async getFeatured(
-    supabase: SupabaseClient,
-    today: string = new Date().toISOString().slice(0, 10)
-  ): Promise<ServiceResponse<Recipe | null>> {
+  async getFeatured(supabase: SupabaseClient, date: Date = new Date()): Promise<ServiceResponse<Recipe | null>> {
     try {
-      const { data, error } = await supabase
-        .from('recipes')
-        .select(RECIPE_FULL_SELECT)
-        .not('featured_from', 'is', null)
-        .not('feature_image_path', 'is', null)
-        .lte('featured_from', today)
-        .order('featured_from', { ascending: false })
-        .limit(1)
+      const { data: scheduled } = await supabase
+        .from('featured_schedule')
+        .select('recipe_id')
+        .eq('week_start', weekStartOf(date))
         .maybeSingle();
 
-      if (error) throw error;
-      if (data) return { success: true, data: toRecipe(data as unknown as RawRecipeRow) };
+      if (scheduled?.recipe_id) {
+        const result = await this.getById(supabase, scheduled.recipe_id);
+        if (result.success && result.data) return result;
+      }
 
-      const { data: fallback, error: fallbackError } = await supabase
+      const { data: fallback, error } = await supabase
         .from('recipes')
         .select(RECIPE_FULL_SELECT)
         .not('feature_image_path', 'is', null)
@@ -255,7 +249,7 @@ class RecipeServiceClass extends BaseQueryService {
         .limit(1)
         .maybeSingle();
 
-      if (fallbackError) throw fallbackError;
+      if (error) throw error;
       return { success: true, data: fallback ? toRecipe(fallback as unknown as RawRecipeRow) : null };
     } catch (error) {
       console.error('[RecipeService] getFeatured error:', error);

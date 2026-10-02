@@ -6,7 +6,6 @@ import type { RecipeSummary } from '@/types/recipe';
 
 export interface ReportRecipe extends RecipeSummary {
   published_at: string;
-  featured_from: string | null;
 }
 
 export interface ReportInput {
@@ -14,6 +13,8 @@ export interface ReportInput {
   favourites: { user_id: string; recipe_id: string; created_at: string }[];
   profiles: { id: string; role: string | null; created_at: string; last_login_at: string | null }[];
   pairings: { recipe_id: string; accompanying_id: string }[];
+  /** Recipe of the week schedule (week_start is a Monday, YYYY-MM-DD) */
+  schedule?: { week_start: string; recipe_id: string }[];
   /** null when view tracking isn't set up yet (migration 025) */
   views?: { recipe_id: string; user_id: string | null; viewed_at: string }[] | null;
 }
@@ -56,7 +57,12 @@ export interface Report {
     slots: Record<SlotKind, number>;
     added30: number;
   };
-  featured: { current: ReportRecipe | null; upcoming: { recipe: ReportRecipe; from: string }[] };
+  featured: {
+    current: ReportRecipe | null;
+    upcoming: { recipe: ReportRecipe; weekStart: string }[];
+    /** Of the next 8 weeks (after this one), how many have nothing scheduled */
+    unscheduledNext8: number;
+  };
   views: {
     enabled: boolean;
     last30: number;
@@ -219,11 +225,15 @@ export function buildReport(input: ReportInput, now: Date = new Date()): Report 
     .slice(0, 10);
 
   // ── Recipe of the week ──
-  const today = iso(now);
-  const scheduled = recipes
-    .filter((r) => r.featured_from && r.feature_image_path)
-    .sort((a, b) => (a.featured_from! < b.featured_from! ? -1 : 1));
-  const current = [...scheduled].reverse().find((r) => r.featured_from! <= today) ?? null;
+  const thisWeekStart = iso(thisWeek);
+  const schedule = (input.schedule ?? []).filter((w) => byId.has(w.recipe_id));
+  const current = schedule.find((w) => w.week_start === thisWeekStart);
+  const upcoming = schedule
+    .filter((w) => w.week_start > thisWeekStart)
+    .sort((a, b) => (a.week_start < b.week_start ? -1 : 1))
+    .map((w) => ({ recipe: byId.get(w.recipe_id)!, weekStart: w.week_start }));
+  const next8 = Array.from({ length: 8 }, (_, i) => iso(new Date(thisWeek.getTime() + (i + 1) * 7 * DAY)));
+  const unscheduledNext8 = next8.filter((wk) => !schedule.some((w) => w.week_start === wk)).length;
 
   return {
     members: {
@@ -256,8 +266,9 @@ export function buildReport(input: ReportInput, now: Date = new Date()): Report 
       added30: recipes.filter((r) => new Date(r.published_at).getTime() >= since30).length,
     },
     featured: {
-      current,
-      upcoming: scheduled.filter((r) => r.featured_from! > today).map((r) => ({ recipe: r, from: r.featured_from! })),
+      current: current ? byId.get(current.recipe_id)! : null,
+      upcoming,
+      unscheduledNext8,
     },
     views: {
       enabled: input.views != null,

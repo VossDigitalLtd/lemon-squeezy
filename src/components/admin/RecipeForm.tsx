@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Plus, Trash2, GripVertical, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +57,6 @@ function emptyFormData(): RecipeFormData {
     method_groups: [{ group_title: '', items: [''] }],
     serving_suggestions: '',
     tips: '',
-    featured_from: null,
     course_category_ids: [],
     cuisine_category_ids: [],
     dietary_category_ids: [],
@@ -85,7 +85,6 @@ function recipeToFormData(recipe: Recipe): RecipeFormData {
       : [{ group_title: '', items: [''] }],
     serving_suggestions: recipe.serving_suggestions,
     tips: recipe.tips,
-    featured_from: recipe.featured_from,
     published_at: recipe.published_at || undefined,
     course_category_ids: recipe.course_categories.map((c) => c.id),
     cuisine_category_ids: recipe.cuisine_categories.map((c) => c.id),
@@ -628,23 +627,16 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
               Sets the order of &ldquo;Fresh off the chopping board&rdquo;. Leave blank on a new recipe to use today.
             </p>
           </Field>
-          <Field label="Recipe of the week from">
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                value={form.featured_from ?? ''}
-                onChange={(e) => updateField('featured_from', e.target.value || null)}
-              />
-              {form.featured_from && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => updateField('featured_from', null)}>
-                  Clear
-                </Button>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1.5">
-              The homepage features the recipe with the latest date that has arrived. Needs a feature image.
+          <div>
+            <p className="mb-1.5 text-sm font-medium">Recipe of the week</p>
+            <p className="text-sm text-muted-foreground">
+              Scheduled week by week on the{' '}
+              <Link href="/admin/featured" className="font-medium text-foreground underline decoration-primary decoration-2 underline-offset-4">
+                Recipe of the week
+              </Link>{' '}
+              page, so two recipes can&apos;t clash.
             </p>
-          </Field>
+          </div>
         </div>
       </Section>
 
