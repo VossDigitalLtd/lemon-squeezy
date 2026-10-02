@@ -56,7 +56,7 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
               >
                 <Minus size={16} />
               </button>
-              <output className="min-w-[5.5rem] text-center text-[0.9375rem] tabular-nums" aria-live="polite">
+              <output className="w-[6.25rem] text-center text-[0.9375rem] tabular-nums" aria-live="polite">
                 {servings} serving{servings === 1 ? '' : 's'}
               </output>
               <button
@@ -78,8 +78,8 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
                 onClick={() => setSystem(s)}
                 aria-pressed={system === s}
                 className={cn(
-                  'rounded-full px-3.5 py-1.5 text-sm capitalize transition-colors',
-                  system === s ? 'bg-primary font-medium text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                  'rounded-full px-3.5 py-1.5 text-sm font-medium capitalize transition-colors',
+                  system === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {s}
@@ -104,7 +104,9 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
 
                 return (
                   <li key={key}>
-                    <label className="flex cursor-pointer items-baseline gap-3.5 py-3">
+                    {/* Quantity has its own fixed-width column, so changing servings or
+                        units never rewraps the name and the panel keeps its height */}
+                    <label className="grid cursor-pointer grid-cols-[auto_5.75rem_minmax(0,1fr)] items-baseline gap-x-3 py-3">
                       <input
                         type="checkbox"
                         checked={isTicked}
@@ -120,8 +122,13 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
                       >
                         {isTicked && <Check size={11} strokeWidth={3} />}
                       </span>
-                      <span className={cn(isTicked && 'text-muted-foreground line-through')}>
-                        {qty && <span className="font-semibold tabular-nums">{qty} </span>}
+                      {qty && (
+                        <span className={cn('font-semibold tabular-nums', isTicked && 'text-muted-foreground line-through')}>
+                          {qty}
+                        </span>
+                      )}
+                      {/* No quantity (e.g. "Salt and pepper") never changes, so the name can use the space */}
+                      <span className={cn(!qty && 'col-span-2', isTicked && 'text-muted-foreground line-through')}>
                         {shown.name}
                       </span>
                     </label>

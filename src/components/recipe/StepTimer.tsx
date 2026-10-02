@@ -75,12 +75,21 @@ export function StepTimer({ minutes, label }: StepTimerProps) {
         label=""
         className={cn('size-6', running ? 'text-background' : finished ? 'text-primary-foreground' : '')}
       />
-      <span>
-        {running
-          ? `${Math.floor(remainingSec / 60)}:${String(remainingSec % 60).padStart(2, '0')}`
-          : finished
-            ? "Time's up"
-            : label}
+      {/* Every possible text is stacked invisibly so the chip keeps one width
+          and the step text around it doesn't reflow as the timer runs */}
+      <span className="grid">
+        {[label, "Time's up", minutes >= 100 ? '000:00' : '00:00'].map((t) => (
+          <span key={t} className="invisible col-start-1 row-start-1 whitespace-nowrap" aria-hidden="true">
+            {t}
+          </span>
+        ))}
+        <span className="col-start-1 row-start-1 whitespace-nowrap text-center">
+          {running
+            ? `${Math.floor(remainingSec / 60)}:${String(remainingSec % 60).padStart(2, '0')}`
+            : finished
+              ? "Time's up"
+              : label}
+        </span>
       </span>
     </button>
   );
