@@ -3,7 +3,7 @@
 import { useEffect, ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Heart, LayoutGrid, ShieldCheck, User, FileDown, LogOut, ShoppingBasket, CalendarHeart } from 'lucide-react';
+import { Heart, LayoutGrid, ShieldCheck, User, FileDown, LogOut, ListChecks, CalendarHeart } from 'lucide-react';
 import { useAuth } from '@/lib/supabase/auth';
 import { ACCOUNT_NAV_LINKS } from '@/lib/config/navigation';
 import { cn } from '@/utils/cn';
@@ -16,7 +16,7 @@ import { cn } from '@/utils/cn';
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   '/account': LayoutGrid,
   '/account/recipe-box': Heart,
-  '/account/shopping-list': ShoppingBasket,
+  '/account/shopping-list': ListChecks,
   '/account/menus': CalendarHeart,
   '/account/profile': User,
   '/account/security': ShieldCheck,

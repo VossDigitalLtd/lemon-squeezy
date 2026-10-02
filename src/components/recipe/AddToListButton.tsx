@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, ShoppingBasket } from 'lucide-react';
+import { Check, ListChecks } from 'lucide-react';
 import { useAuth } from '@/lib/supabase/auth';
 import { useToast } from '@/hooks/useToast';
 import { SignInPromptDialog } from '@/components/auth/SignInPromptDialog';
@@ -64,14 +64,14 @@ export function AddToListButton({ items, label, className }: AddToListButtonProp
           disabled={state === 'adding' || items.length === 0}
           className={cn('inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-card px-5 text-[0.9375rem] font-medium transition hover:border-foreground disabled:opacity-50', className)}
         >
-          <ShoppingBasket size={17} />
+          <ListChecks size={17} />
           {state === 'adding' ? 'Adding…' : `Add ${label} to shopping list`}
         </button>
       )}
       <SignInPromptDialog
         open={promptOpen}
         onOpenChange={setPromptOpen}
-        icon={<ShoppingBasket size={26} />}
+        icon={<ListChecks size={26} />}
         title="Build a shopping list"
         text="Add recipes and we'll combine the ingredients into one list you can tick off in the shop, on any device. It's free."
       />

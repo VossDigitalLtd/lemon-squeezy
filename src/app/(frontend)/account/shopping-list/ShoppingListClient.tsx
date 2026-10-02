@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Check, ClipboardCopy, Minus, Plus, Printer, ShoppingBasket, Trash2, X } from 'lucide-react';
+import { Check, ClipboardCopy, Minus, Plus, Printer, ListChecks, Trash2, X } from 'lucide-react';
 import { AccountPageHeader, FormError, pillButton } from '@/components/account/AccountUI';
 import { LogoMark } from '@/components/brand';
 import { useToast } from '@/hooks/useToast';
@@ -118,7 +118,7 @@ export default function ShoppingListClient() {
 
       {isEmpty ? (
         <div className="rounded-2xl bg-brand-muted p-8 sm:p-10">
-          <ShoppingBasket size={32} />
+          <ListChecks size={32} />
           <p className="mt-4 font-display text-2xl">Your list is empty</p>
           <p className="mt-2 max-w-md text-muted-foreground">
             Press &ldquo;Add to shopping list&rdquo; on a recipe, or plan a meal in What We Having? and add the whole menu.

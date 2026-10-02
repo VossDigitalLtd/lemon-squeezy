@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Heart, LogOut, Menu, Search, Settings, ShoppingBasket, User } from 'lucide-react';
+import { Heart, LogOut, Menu, Search, Settings, ListChecks, User } from 'lucide-react';
 import { LogoMark } from '@/components/brand';
 import { ThemeSwitcher } from '@/components/layouts/ThemeSwitcher';
 import { APP_NAME, features } from '@/lib/config/app';
@@ -183,7 +183,7 @@ function ShoppingListLink() {
       aria-label="Your shopping list"
       title="Shopping list"
     >
-      <ShoppingBasket size={20} />
+      <ListChecks size={20} />
     </Link>
   );
 }
@@ -324,7 +324,7 @@ function MobileMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (open
               <MobileLink href="/account/recipe-box" icon={<Heart size={18} className="text-red-600 dark:text-red-400" />}>
                 Recipe box
               </MobileLink>
-              <MobileLink href="/account/shopping-list" icon={<ShoppingBasket size={18} />}>
+              <MobileLink href="/account/shopping-list" icon={<ListChecks size={18} />}>
                 Shopping list
               </MobileLink>
               <MobileLink href="/account" icon={<User size={18} />}>
