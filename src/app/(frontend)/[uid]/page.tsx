@@ -10,6 +10,7 @@ import RecipeContentClient from './RecipeContentClient';
 import { FavouriteButton } from '@/components/recipe/FavouriteButton';
 import { CookModeButton } from '@/components/recipe/CookModeButton';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
+import { RecipeViewTracker } from '@/components/recipe/RecipeViewTracker';
 import { LogoTimer, LogoRays, LaceBand } from '@/components/brand';
 import { formatMinutesLong } from '@/lib/time';
 import { cn } from '@/utils/cn';

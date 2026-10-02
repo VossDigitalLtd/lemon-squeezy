@@ -14,12 +14,21 @@ export interface ReportInput {
   favourites: { user_id: string; recipe_id: string; created_at: string }[];
   profiles: { id: string; role: string | null; created_at: string; last_login_at: string | null }[];
   pairings: { recipe_id: string; accompanying_id: string }[];
+  /** null when view tracking isn't set up yet (migration 025) */
+  views?: { recipe_id: string; user_id: string | null; viewed_at: string }[] | null;
 }
 
 export interface Bucket {
   key: string;
   label: string;
   count: number;
+}
+
+export interface ViewWeek {
+  key: string;
+  label: string;
+  signedIn: number;
+  guests: number;
 }
 
 export interface HealthIssue {
@@ -48,6 +57,16 @@ export interface Report {
     added30: number;
   };
   featured: { current: ReportRecipe | null; upcoming: { recipe: ReportRecipe; from: string }[] };
+  views: {
+    enabled: boolean;
+    last30: number;
+    signedIn30: number;
+    guests30: number;
+    /** distinct signed-in members who viewed a recipe in the last 30 days */
+    activeMembers30: number;
+    byWeek: ViewWeek[];
+    top: { recipe: ReportRecipe; views: number; signedIn: number }[];
+  };
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -175,6 +194,30 @@ export function buildReport(input: ReportInput, now: Date = new Date()): Report 
     ['none', 'No time set', (t) => !t],
   ];
 
+  // ── Views ──
+  const views = input.views ?? [];
+  const views30 = views.filter((v) => new Date(v.viewed_at).getTime() >= since30);
+  const viewWeeks: ViewWeek[] = byWeek.map((w) => {
+    const start = new Date(`${w.key}T00:00:00Z`).getTime();
+    const inWeek = views.filter((v) => {
+      const t = new Date(v.viewed_at).getTime();
+      return t >= start && t < start + 7 * DAY;
+    });
+    return { key: w.key, label: w.label, signedIn: inWeek.filter((v) => v.user_id).length, guests: inWeek.filter((v) => !v.user_id).length };
+  });
+  const perRecipe = new Map<string, { views: number; signedIn: number }>();
+  for (const v of views30) {
+    const e = perRecipe.get(v.recipe_id) ?? { views: 0, signedIn: 0 };
+    e.views += 1;
+    if (v.user_id) e.signedIn += 1;
+    perRecipe.set(v.recipe_id, e);
+  }
+  const topViewed = [...perRecipe.entries()]
+    .filter(([id]) => byId.has(id))
+    .map(([id, e]) => ({ recipe: byId.get(id)!, ...e }))
+    .sort((a, b) => b.views - a.views || a.recipe.title.localeCompare(b.recipe.title))
+    .slice(0, 10);
+
   // ── Recipe of the week ──
   const today = iso(now);
   const scheduled = recipes
@@ -215,6 +258,15 @@ export function buildReport(input: ReportInput, now: Date = new Date()): Report 
     featured: {
       current,
       upcoming: scheduled.filter((r) => r.featured_from! > today).map((r) => ({ recipe: r, from: r.featured_from! })),
+    },
+    views: {
+      enabled: input.views != null,
+      last30: views30.length,
+      signedIn30: views30.filter((v) => v.user_id).length,
+      guests30: views30.filter((v) => !v.user_id).length,
+      activeMembers30: new Set(views30.map((v) => v.user_id).filter(Boolean)).size,
+      byWeek: viewWeeks,
+      top: topViewed,
     },
   };
 }

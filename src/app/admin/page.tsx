@@ -11,6 +11,8 @@ import {
   ExternalLink,
   Globe,
   BarChart3,
+  AlertTriangle,
+  CheckCircle2,
   type LucideIcon,
 } from 'lucide-react';
 import { useAdminRole } from '@/app/admin/context';
@@ -108,6 +110,15 @@ export default function AdminDashboard() {
     });
   }, []);
 
+  // Recipe to-do counts for the dashboard card (staff only; the admin area already is)
+  const [todo, setTodo] = useState<TodoSummary | null | undefined>(undefined);
+  useEffect(() => {
+    fetch('/api/admin/reports/summary', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => setTodo(json?.data ?? null))
+      .catch(() => setTodo(null));
+  }, []);
+
   // Only admins can list users, so wait until the role is known
   useEffect(() => {
     if (!isAdmin) return;
@@ -162,6 +173,8 @@ export default function AdminDashboard() {
         )}
       </div>
 
+      <TodoCard todo={todo} />
+
       {/* Quick Actions */}
       <div>
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
@@ -215,6 +228,71 @@ export default function AdminDashboard() {
           {ROLE_LABELS[role ?? 'user'] ?? role}
         </Badge>
       </div>
+    </div>
+  );
+}
+
+// ─── Recipe to-do card ───────────────────────────────────────────────────────
+
+interface TodoSummary {
+  total: number;
+  complete: number;
+  issues: { key: string; label: string; count: number }[];
+  views30: number | null;
+  saves30: number;
+}
+
+/** The biggest gaps from Reports → Recipe to-do list, with a link to the full lists */
+function TodoCard({ todo }: { todo: TodoSummary | null | undefined }) {
+  if (todo === null) return null; // couldn't load: leave the dashboard as it was
+
+  return (
+    <div className="mb-8 rounded-xl border border-border border-t-[3px] border-t-viz-attention bg-card p-5 shadow-card">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 font-semibold text-foreground">
+            <span className="grid size-7 place-items-center rounded-lg bg-viz-attention/12 text-viz-attention">
+              <AlertTriangle size={15} />
+            </span>
+            Recipe to-do
+          </h2>
+          {todo && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {todo.complete} of {todo.total} recipes have everything.
+              {todo.views30 !== null && ` ${todo.views30} recipe views and ${todo.saves30} saves in the last 30 days.`}
+            </p>
+          )}
+        </div>
+        <Link href="/admin/reports" className="inline-flex items-center gap-1 text-sm font-medium text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:decoration-foreground">
+          See the full lists <ArrowUpRight size={14} />
+        </Link>
+      </div>
+
+      {todo === undefined ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-10 animate-pulse rounded-lg bg-muted" />
+          ))}
+        </div>
+      ) : todo.issues.length === 0 ? (
+        <p className="flex items-center gap-2 text-sm text-viz-good">
+          <CheckCircle2 size={16} /> Every recipe is complete.
+        </p>
+      ) : (
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {todo.issues.slice(0, 4).map((issue) => (
+            <li key={issue.key}>
+              <Link
+                href={`/admin/reports#todo-${issue.key}`}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:border-viz-attention/60 hover:bg-viz-attention/5"
+              >
+                <span className="truncate">{issue.label}</span>
+                <span className="flex-shrink-0 font-semibold tabular-nums text-viz-attention">{issue.count}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

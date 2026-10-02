@@ -45,6 +45,14 @@
   --color-brand-muted: var(--brand-muted);
   /* Lefkara-lace line colour (LaceBand, dividers in brand-muted panels) */
   --color-lace: var(--lace);
+  /* Report colours: one per subject, validated for contrast and colour-blind
+     separation in both modes (dataviz validator). Saves stay red, as on the site. */
+  --color-viz-saves: var(--viz-saves);
+  --color-viz-members: var(--viz-members);
+  --color-viz-guests: var(--viz-guests);
+  --color-viz-collection: var(--viz-collection);
+  --color-viz-attention: var(--viz-attention);
+  --color-viz-good: var(--viz-good);
   /* Dark footer band */
   --color-footer: var(--footer);
   --color-footer-foreground: var(--footer-fg);
@@ -74,6 +82,12 @@
   --lace:        oklch(0.84 0.07 95);
   --footer:      oklch(0.2 0.005 95);
   --footer-fg:   oklch(0.96 0.005 95);
+  --viz-saves:      #e34948;
+  --viz-members:    #2a78d6;
+  --viz-guests:     #eb6834;
+  --viz-collection: #15936a;
+  --viz-attention:  #a35f00;
+  --viz-good:       #15803d;
   /* ─────────────────────────────────────────────────────────────────────────── */
 
   --radius: 0.625rem;
@@ -118,6 +132,12 @@
   --lace:        oklch(0.38 0.06 95);
   --footer:      oklch(0.11 0.005 95);
   --footer-fg:   oklch(0.96 0.005 95);
+  --viz-saves:      #e66767;
+  --viz-members:    #3987e5;
+  --viz-guests:     #d95926;
+  --viz-collection: #199e70;
+  --viz-attention:  #e0a030;
+  --viz-good:       #3fb36b;
   /* ─────────────────────────────────────────────────────────────────────────── */
 
   --background: oklch(0.145 0 0);

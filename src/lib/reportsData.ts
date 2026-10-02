@@ -21,6 +21,11 @@ export async function loadReport(): Promise<Report> {
     if (r.error) throw r.error;
   }
 
+  // Views from the last 13 weeks; if the table doesn't exist yet (migration
+  // 025 not run), the report says view tracking isn't set up.
+  const since = new Date(Date.now() - 13 * 7 * 24 * 60 * 60 * 1000).toISOString();
+  const views = await admin.from('recipe_views').select('recipe_id, user_id, viewed_at').gte('viewed_at', since);
+
   const rows = (recipes.data || []) as unknown as (RawRecipeRow & { published_at: string; featured_from: string | null })[];
 
   return buildReport({
@@ -32,5 +37,6 @@ export async function loadReport(): Promise<Report> {
     favourites: favourites.data || [],
     profiles: profiles.data || [],
     pairings: pairings.data || [],
+    views: views.error ? null : views.data || [],
   });
 }

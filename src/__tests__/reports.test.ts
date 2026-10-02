@@ -119,3 +119,36 @@ describe('buildReport: coverage and featuring', () => {
     expect(r.featured.upcoming.map((u) => u.recipe.id)).toEqual(['next']);
   });
 });
+
+describe('buildReport: views', () => {
+  const withViews = buildReport(
+    {
+      ...input,
+      views: [
+        { recipe_id: 'houmous', user_id: 'a', viewed_at: '2026-10-01T10:00:00Z' },
+        { recipe_id: 'houmous', user_id: null, viewed_at: '2026-10-01T11:00:00Z' },
+        { recipe_id: 'houmous', user_id: 'b', viewed_at: '2026-09-22T11:00:00Z' },
+        { recipe_id: 'pie', user_id: 'a', viewed_at: '2026-09-30T10:00:00Z' },
+        { recipe_id: 'pie', user_id: null, viewed_at: '2026-07-01T10:00:00Z' }, // older than 30 days
+      ],
+    },
+    now
+  );
+
+  it('splits members from guests and counts active members', () => {
+    expect(withViews.views).toMatchObject({ enabled: true, last30: 4, signedIn30: 3, guests30: 1, activeMembers30: 2 });
+  });
+
+  it('stacks signed-in and guest views per week', () => {
+    expect(withViews.views.byWeek.at(-1)).toMatchObject({ key: '2026-09-28', signedIn: 2, guests: 1 });
+    expect(withViews.views.byWeek.at(-2)).toMatchObject({ key: '2026-09-21', signedIn: 1, guests: 0 });
+  });
+
+  it('ranks the most viewed recipes in the last 30 days', () => {
+    expect(withViews.views.top.map((t) => [t.recipe.id, t.views, t.signedIn])).toEqual([['houmous', 3, 2], ['pie', 1, 1]]);
+  });
+
+  it('reports tracking as off when there is no views table', () => {
+    expect(report.views.enabled).toBe(false);
+  });
+});
