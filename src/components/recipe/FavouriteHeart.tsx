@@ -8,17 +8,26 @@ interface FavouriteHeartProps {
   recipeId: string;
   recipeTitle: string;
   initialFavourited: boolean;
+  /** Controlled mode: the parent owns the state and the request */
+  favourited?: boolean;
+  onToggle?: () => void;
 }
 
 /**
  * Round heart button for recipe cards (the card's `action` slot).
- * Optimistic: flips straight away, reverts if the request fails.
+ * Uncontrolled by default: flips straight away, reverts if the request fails.
+ * Pass `favourited` + `onToggle` when a parent tracks favourites itself.
  */
-export function FavouriteHeart({ recipeId, recipeTitle, initialFavourited }: FavouriteHeartProps) {
-  const [isFav, setIsFav] = useState(initialFavourited);
+export function FavouriteHeart({ recipeId, recipeTitle, initialFavourited, favourited, onToggle }: FavouriteHeartProps) {
+  const [ownFav, setIsFav] = useState(initialFavourited);
   const [busy, setBusy] = useState(false);
+  const isFav = favourited ?? ownFav;
 
   async function toggle() {
+    if (onToggle) {
+      onToggle();
+      return;
+    }
     setBusy(true);
     setIsFav((v) => !v);
     try {

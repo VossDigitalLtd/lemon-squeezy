@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Sun, Moon, Monitor, LogOut, User, Settings } from 'lucide-react';
+import { Sun, Moon, Monitor, LogOut, User, Settings, Menu } from 'lucide-react';
 import { LogoMark } from '@/components/brand';
 import { APP_NAME, features } from '@/lib/config/app';
 import { useAuth } from '@/lib/supabase/auth';
@@ -45,6 +45,8 @@ interface FrontendHeaderProps {
    *   } />
    */
   nav?: React.ReactNode;
+  /** Links for the small-screen menu (shown below md, where `nav` is usually hidden) */
+  mobileLinks?: { href: string; label: string }[];
 }
 
 /**
@@ -59,7 +61,7 @@ interface FrontendHeaderProps {
  * To use in a page or layout:
  *   import { FrontendHeader } from '@/components/layouts/FrontendHeader';
  */
-export function FrontendHeader({ logoHref = '/', nav }: FrontendHeaderProps) {
+export function FrontendHeader({ logoHref = '/', nav, mobileLinks }: FrontendHeaderProps) {
   const { user, isLoading } = useAuth();
   const { theme, setTheme } = useAppearanceSettings();
 
@@ -90,6 +92,30 @@ export function FrontendHeader({ logoHref = '/', nav }: FrontendHeaderProps) {
 
         {/* Right controls */}
         <div className="flex items-center gap-2 ml-auto">
+
+          {/* Small-screen menu */}
+          {mobileLinks && mobileLinks.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="md:hidden h-9 w-9 flex items-center justify-center rounded-full text-foreground hover:bg-accent transition-colors"
+                  aria-label="Menu"
+                >
+                  <Menu size={20} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {mobileLinks.map((link) => (
+                  <DropdownMenuItem key={link.href} asChild>
+                    <Link href={link.href} className="cursor-pointer text-[0.9375rem]">
+                      {link.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           {/* Theme toggle */}
           <button

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { RecipeService } from '@/lib/supabase/services';
-import RandomRecipeClient from './RandomRecipeClient';
+import { ShuffleBand } from '@/components/home/ShuffleBand';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -13,13 +13,14 @@ export default async function WhatWeHavingPage() {
   const result = await RecipeService.getAll(supabase, { limit: 100 });
   const recipes = result.success ? result.data! : [];
 
-  return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12 text-center">
-      <h1 className="text-3xl font-bold text-foreground mb-2">What We Having?</h1>
-      <p className="text-muted-foreground mb-8">
-        Can&apos;t decide what to cook? Let us pick for you!
+  if (recipes.length === 0) {
+    return (
+      <p className="mx-auto max-w-2xl px-4 py-20 text-center text-muted-foreground">
+        No recipes yet. Add some in the admin first.
       </p>
-      <RandomRecipeClient recipes={recipes} />
-    </div>
-  );
+    );
+  }
+
+  // The band stretches to fill the page between header and footer
+  return <ShuffleBand recipes={recipes} headingLevel="h1" className="flex flex-1 items-center [&>div]:w-full" />;
 }

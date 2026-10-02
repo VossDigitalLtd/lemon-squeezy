@@ -14,7 +14,15 @@ import type { RecipeSummary } from '@/types/recipe';
  * Yellow "What We Having?" band: picks a random recipe from `recipes`,
  * never the same one twice in a row.
  */
-export function ShuffleBand({ recipes, className }: { recipes: RecipeSummary[]; className?: string }) {
+interface ShuffleBandProps {
+  recipes: RecipeSummary[];
+  className?: string;
+  /** Use "h1" when the band is the page itself (/what-we-having) */
+  headingLevel?: 'h1' | 'h2';
+}
+
+export function ShuffleBand({ recipes, className, headingLevel = 'h2' }: ShuffleBandProps) {
+  const Heading = headingLevel;
   const [picked, setPicked] = useState<RecipeSummary | null>(null);
 
   if (recipes.length === 0) return null;
@@ -30,9 +38,9 @@ export function ShuffleBand({ recipes, className }: { recipes: RecipeSummary[]; 
     <section aria-labelledby="shuffle-title" data-flush-bottom className={cn('bg-primary text-primary-foreground', className)}>
       <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-14 sm:px-8 lg:grid-cols-2 lg:gap-16">
         <div>
-          <h2 id="shuffle-title" className="font-display text-[clamp(2.5rem,5vw,3.75rem)] leading-none">
+          <Heading id="shuffle-title" className="font-display text-[clamp(2.5rem,5vw,3.75rem)] leading-none">
             What We Having?
-          </h2>
+          </Heading>
           <p className="mt-3 max-w-md text-[1.0625rem]">Can&rsquo;t decide what to cook? Let us pick for you.</p>
           <button
             type="button"

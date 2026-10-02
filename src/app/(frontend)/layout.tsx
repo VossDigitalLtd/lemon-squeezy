@@ -7,6 +7,7 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <FrontendHeader
+        mobileLinks={FRONTEND_NAV_LINKS}
         nav={
           <nav className="hidden md:flex items-center gap-7" aria-label="Main">
             {FRONTEND_NAV_LINKS.map((link) => (
@@ -22,7 +23,7 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
         }
       />
       {/* A page can end on a full-bleed band ([data-flush-bottom]) that meets the footer */}
-      <main className="flex-1 pb-20 [&:has(>[data-flush-bottom]:last-child)]:pb-0">{children}</main>
+      <main className="flex flex-1 flex-col pb-20 [&:has(>[data-flush-bottom]:last-child)]:pb-0">{children}</main>
       <footer className="bg-footer text-footer-foreground">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 py-12 grid justify-items-center gap-6 text-center">
           <LogoMark size={52} className="text-footer-foreground" />

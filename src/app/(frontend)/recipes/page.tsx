@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { RecipeService, CategoryService, FavouriteService } from '@/lib/supabase/services';
+import { parseFilters, filtersToQuery } from '@/lib/recipeFilters';
 import RecipeListClient from './RecipeListClient';
 import type { Metadata } from 'next';
 
@@ -8,13 +9,18 @@ export const metadata: Metadata = {
   description: 'Browse our collection of simple, delicious recipes.',
 };
 
-export default async function RecipesPage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function RecipesPage({ searchParams }: PageProps) {
   const supabase = await createClient();
 
-  const [recipesResult, categoriesResult, userResult] = await Promise.all([
+  const [recipesResult, categoriesResult, userResult, params] = await Promise.all([
     RecipeService.getAll(supabase, { limit: 100 }),
     CategoryService.getAllGrouped(supabase),
     supabase.auth.getUser(),
+    searchParams,
   ]);
 
   const user = userResult.data?.user;
@@ -27,19 +33,15 @@ export default async function RecipesPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Recipes</h1>
-        <p className="text-muted-foreground mt-2">
-          Browse our collection of simple, delicious recipes.
-        </p>
-      </div>
-
+    <div className="mx-auto max-w-7xl px-4 pt-10 sm:px-8">
+      {/* Remount when a link changes the filters (e.g. header "Quick meals" while on this page) */}
       <RecipeListClient
+        key={filtersToQuery(parseFilters(params))}
         initialRecipes={recipesResult.success ? recipesResult.data! : []}
         categories={categoriesResult.success ? categoriesResult.data! : { courses: [], cuisines: [], dietaries: [] }}
         favouriteIds={favouriteIds}
         isLoggedIn={!!user}
+        initialFilters={parseFilters(params)}
       />
     </div>
   );

@@ -32,6 +32,8 @@ export const ACCOUNT_NAV_LINKS: AccountNavLink[] = [];
 
 export const FRONTEND_NAV_LINKS: AccountNavLink[] = [
   { href: '/recipes', label: 'Recipes' },
+  { href: '/recipes?time=30', label: 'Quick meals' },
+  { href: '/recipes?cuisine=cypriot', label: 'Cypriot' },
   { href: '/what-we-having', label: 'What We Having?' },
 ];
 
