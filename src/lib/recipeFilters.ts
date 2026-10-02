@@ -14,6 +14,8 @@ export interface RecipeFilters {
   course: string[];
   cuisine: string[];
   dietary: string[];
+  /** Ingredient slugs; recipes must contain all of them */
+  ingredient: string[];
 }
 
 export const EMPTY_FILTERS: RecipeFilters = {
@@ -23,6 +25,7 @@ export const EMPTY_FILTERS: RecipeFilters = {
   course: [],
   cuisine: [],
   dietary: [],
+  ingredient: [],
 };
 
 type Params = Record<string, string | string[] | undefined>;
@@ -46,6 +49,7 @@ export function parseFilters(params: Params): RecipeFilters {
     course: list(params.course),
     cuisine: list(params.cuisine),
     dietary: list(params.dietary),
+    ingredient: list(params.ingredient),
   };
 }
 
@@ -57,6 +61,7 @@ export function filtersToQuery(filters: RecipeFilters): string {
   for (const type of CATEGORY_TYPES) {
     if (filters[type].length) params.set(type, filters[type].join(','));
   }
+  if (filters.ingredient.length) params.set('ingredient', filters.ingredient.join(','));
   if (filters.favourites) params.set('favourites', '1');
   const query = params.toString().replace(/%2C/g, ',');
   return query ? `?${query}` : '';
@@ -69,15 +74,19 @@ export function hasActiveFilters(filters: RecipeFilters): boolean {
     filters.favourites ||
     filters.course.length ||
     filters.cuisine.length ||
-    filters.dietary.length
+    filters.dietary.length ||
+    filters.ingredient.length
   );
 }
 
 export function applyFilters(
   recipes: RecipeSummary[],
   filters: RecipeFilters,
-  favouriteIds: Set<string> = new Set()
+  favouriteIds: Set<string> = new Set(),
+  /** ingredient slug → id, for the ingredient filter */
+  ingredientIds: Map<string, string> = new Map()
 ): RecipeSummary[] {
+  const wantedIngredients = filters.ingredient.map((slug) => ingredientIds.get(slug)).filter((id): id is string => !!id);
   const q = filters.q.trim().toLowerCase();
   const categoryKeys = {
     course: 'course_categories',
@@ -92,6 +101,7 @@ export function applyFilters(
       if (wanted.length && !recipe[categoryKeys[type]].some((c) => wanted.includes(c.uid))) return false;
     }
     if (filters.time && (!recipe.total_time || recipe.total_time > filters.time)) return false;
+    if (wantedIngredients.length && !wantedIngredients.every((id) => recipe.ingredient_ids?.includes(id))) return false;
     if (q) {
       const haystack = `${recipe.title} ${recipe.subtitle} ${recipe.short_description}`.toLowerCase();
       if (!haystack.includes(q)) return false;

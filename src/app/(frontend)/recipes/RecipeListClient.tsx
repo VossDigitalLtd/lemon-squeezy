@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Heart, Search, SlidersHorizontal, X } from 'lucide-react';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { FavouriteHeart } from '@/components/recipe/FavouriteHeart';
@@ -14,7 +14,7 @@ import {
   type RecipeFilters,
 } from '@/lib/recipeFilters';
 import { cn } from '@/utils/cn';
-import type { RecipeSummary, Category, CategoryType } from '@/types/recipe';
+import type { RecipeSummary, Category, CategoryType, LibraryIngredient } from '@/types/recipe';
 
 const TIME_LABELS: Record<number, string> = {
   15: 'Under 15 min',
@@ -33,6 +33,8 @@ interface RecipeListClientProps {
   favouriteIds: string[];
   isLoggedIn: boolean;
   initialFilters: RecipeFilters;
+  /** Library ingredients to filter by (used by recipes, not staples) */
+  ingredients: LibraryIngredient[];
 }
 
 export default function RecipeListClient({
@@ -41,6 +43,7 @@ export default function RecipeListClient({
   favouriteIds,
   isLoggedIn,
   initialFilters,
+  ingredients,
 }: RecipeListClientProps) {
   const [filters, setFilters] = useState<RecipeFilters>(initialFilters);
   const [localFavourites, setLocalFavourites] = useState<Set<string>>(() => new Set(favouriteIds));
@@ -55,9 +58,11 @@ export default function RecipeListClient({
     }
   }, [filters]);
 
+  const ingredientBySlug = useMemo(() => new Map(ingredients.map((i) => [i.slug, i])), [ingredients]);
+  const ingredientIds = useMemo(() => new Map(ingredients.map((i) => [i.slug, i.id])), [ingredients]);
   const filtered = useMemo(
-    () => applyFilters(initialRecipes, filters, localFavourites),
-    [initialRecipes, filters, localFavourites]
+    () => applyFilters(initialRecipes, filters, localFavourites, ingredientIds),
+    [initialRecipes, filters, localFavourites, ingredientIds]
   );
   const active = hasActiveFilters(filters);
 
@@ -68,6 +73,7 @@ export default function RecipeListClient({
   }, [categories]);
 
   const activeCount =
+    filters.ingredient.length +
     (filters.time ? 1 : 0) +
     (filters.favourites ? 1 : 0) +
     filters.course.length +
@@ -103,6 +109,11 @@ export default function RecipeListClient({
 
   // Page heading follows a single, simple filter: "Cypriot recipes", "Under 30 min"
   const heading = (() => {
+    if (filters.ingredient.length && activeCount === filters.ingredient.length && !filters.q) {
+      const names = filters.ingredient.map((s) => ingredientBySlug.get(s)?.name.toLowerCase()).filter(Boolean) as string[];
+      if (names.length === 1) return `Recipes with ${names[0]}`;
+      if (names.length === 2) return `Recipes with ${names[0]} and ${names[1]}`;
+    }
     if (filters.favourites && activeCount === 1 && !filters.q) return 'Your recipe box';
     if (activeCount === 1 && !filters.q) {
       if (filters.time) return TIME_LABELS[filters.time];
@@ -118,6 +129,11 @@ export default function RecipeListClient({
   // Chips for what's switched on, shown above the grid
   const chips: { key: string; label: string; remove: () => void }[] = [
     ...(filters.q ? [{ key: 'q', label: `“${filters.q}”`, remove: () => update({ q: '' }) }] : []),
+    ...filters.ingredient.map((slug) => ({
+      key: `ing-${slug}`,
+      label: ingredientBySlug.get(slug)?.name ?? slug,
+      remove: () => update({ ingredient: filters.ingredient.filter((s) => s !== slug) }),
+    })),
     ...(filters.time ? [{ key: 'time', label: TIME_LABELS[filters.time], remove: () => update({ time: null }) }] : []),
     ...(filters.favourites ? [{ key: 'fav', label: 'My favourites', remove: () => update({ favourites: false }) }] : []),
     ...(['course', 'cuisine', 'dietary'] as const).flatMap((type) =>
@@ -183,6 +199,16 @@ export default function RecipeListClient({
                 </button>
               )}
             </div>
+
+            {/* Ingredients */}
+            {ingredients.length > 0 && (
+              <IngredientFilter
+                ingredients={ingredients}
+                chosen={filters.ingredient}
+                onAdd={(slug) => update({ ingredient: [...filters.ingredient, slug] })}
+                onRemove={(slug) => update({ ingredient: filters.ingredient.filter((s) => s !== slug) })}
+              />
+            )}
 
             {/* Total time */}
             <FilterGroup label="Total time">
@@ -335,5 +361,109 @@ function CategoryGroup({
         </Pill>
       ))}
     </FilterGroup>
+  );
+}
+
+/** "What can I make with…": type an ingredient, choose from suggestions */
+function IngredientFilter({
+  ingredients,
+  chosen,
+  onAdd,
+  onRemove,
+}: {
+  ingredients: LibraryIngredient[];
+  chosen: string[];
+  onAdd: (slug: string) => void;
+  onRemove: (slug: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const [active, setActive] = useState(0);
+  const q = query.trim().toLowerCase();
+  const suggestions = q
+    ? ingredients
+        .filter((i) => !chosen.includes(i.slug) && i.name.toLowerCase().includes(q))
+        .sort((a, b) => Number(!a.name.toLowerCase().startsWith(q)) - Number(!b.name.toLowerCase().startsWith(q)) || (b.recipe_count ?? 0) - (a.recipe_count ?? 0))
+        .slice(0, 8)
+    : [];
+  const bySlug = new Map(ingredients.map((i) => [i.slug, i]));
+
+  function add(slug: string) {
+    onAdd(slug);
+    setQuery('');
+    setActive(0);
+  }
+
+  return (
+    <div role="group" aria-label="Ingredients">
+      <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">What can I make with…</h2>
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            setActive(0);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+          onKeyDown={(e) => {
+            if (!suggestions.length) return;
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setActive((a) => Math.min(a + 1, suggestions.length - 1));
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setActive((a) => Math.max(a - 1, 0));
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              add(suggestions[active].slug);
+            }
+          }}
+          placeholder="Add an ingredient, e.g. halloumi"
+          aria-label="Add an ingredient"
+          role="combobox"
+          aria-controls={listId}
+          aria-expanded={open && suggestions.length > 0}
+          className="h-10 w-full rounded-full border border-border bg-card px-4 text-sm placeholder:text-muted-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        {open && suggestions.length > 0 && (
+          <ul id={listId} role="listbox" className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-lg">
+            {suggestions.map((s, i) => (
+              <li key={s.id} role="option" aria-selected={i === active}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => add(s.slug)}
+                  onMouseEnter={() => setActive(i)}
+                  className={cn('flex w-full items-center justify-between px-3 py-2 text-left text-sm', i === active && 'bg-muted')}
+                >
+                  {s.name}
+                  <span className="text-xs text-muted-foreground tabular-nums">{s.recipe_count}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {chosen.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {chosen.map((slug) => (
+            <button
+              key={slug}
+              type="button"
+              onClick={() => onRemove(slug)}
+              className="inline-flex items-center gap-1 rounded-full border border-primary bg-primary px-3 py-1 text-sm font-medium text-primary-foreground"
+              aria-label={`Remove ${bySlug.get(slug)?.name ?? slug}`}
+            >
+              {bySlug.get(slug)?.name ?? slug}
+              <X size={13} />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

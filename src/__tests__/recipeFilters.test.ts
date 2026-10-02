@@ -37,6 +37,7 @@ describe('parseFilters', () => {
       course: ['main', 'side'],
       cuisine: ['cypriot'],
       dietary: [],
+      ingredient: [],
     });
   });
 
@@ -47,9 +48,9 @@ describe('parseFilters', () => {
 
 describe('filtersToQuery', () => {
   it('round-trips through parseFilters', () => {
-    const filters = { ...EMPTY_FILTERS, q: 'pie', time: 45, course: ['main', 'side'], favourites: true };
+    const filters = { ...EMPTY_FILTERS, q: 'pie', time: 45, course: ['main', 'side'], ingredient: ['halloumi'], favourites: true };
     const query = filtersToQuery(filters);
-    expect(query).toBe('?q=pie&time=45&course=main,side&favourites=1');
+    expect(query).toBe('?q=pie&time=45&course=main,side&ingredient=halloumi&favourites=1');
     expect(parseFilters(Object.fromEntries(new URLSearchParams(query)))).toEqual(filters);
   });
 
@@ -78,5 +79,23 @@ describe('applyFilters', () => {
 
   it('limits to favourites', () => {
     expect(ids(applyFilters(all, { ...EMPTY_FILTERS, favourites: true }, new Set(['tomato-soup'])))).toEqual(['tomato-soup']);
+  });
+});
+
+describe('ingredient filter', () => {
+  const withIngredients = [
+    { ...houmous, ingredient_ids: ['chickpea', 'lemon', 'tahini'] },
+    { ...pie, ingredient_ids: ['mince', 'macaroni'] },
+    { ...soup, ingredient_ids: ['tomato', 'lemon'] },
+  ];
+  const ids = new Map([['chickpeas', 'chickpea'], ['lemon', 'lemon'], ['tahini', 'tahini'], ['mince', 'mince']]);
+
+  it('keeps recipes containing every chosen ingredient', () => {
+    expect(applyFilters(withIngredients, { ...EMPTY_FILTERS, ingredient: ['lemon'] }, new Set(), ids).map((r) => r.id)).toEqual(['houmous', 'tomato-soup']);
+    expect(applyFilters(withIngredients, { ...EMPTY_FILTERS, ingredient: ['lemon', 'tahini'] }, new Set(), ids).map((r) => r.id)).toEqual(['houmous']);
+  });
+
+  it('ignores ingredients it does not know', () => {
+    expect(applyFilters(withIngredients, { ...EMPTY_FILTERS, ingredient: ['unicorn'] }, new Set(), ids)).toHaveLength(3);
   });
 });

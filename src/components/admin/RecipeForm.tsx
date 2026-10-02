@@ -31,8 +31,10 @@ import type {
   CategoryType,
   Ingredient,
   IngredientGroup,
+  LibraryIngredient,
   MethodGroup,
 } from '@/types/recipe';
+import { IngredientPicker } from './IngredientPicker';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -120,6 +122,15 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
     recipe ? recipeToFormData(recipe) : emptyFormData()
   );
   const [uploading, setUploading] = useState(false);
+  const [library, setLibrary] = useState<LibraryIngredient[]>([]);
+
+  // Ingredient library for the name pickers
+  useEffect(() => {
+    fetch('/api/ingredients', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => json?.data && setLibrary(json.data))
+      .catch(() => {});
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-generate UID from title (new recipes only)
@@ -199,6 +210,28 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
     const groups = [...form.ingredient_groups];
     groups[gi] = { ...groups[gi], items: groups[gi].items.filter((_, i) => i !== ii) };
     updateIngredientGroups(groups);
+  }
+
+  function setIngredientName(gi: number, ii: number, v: { name: string; ingredient_id?: string }) {
+    const groups = [...form.ingredient_groups];
+    const items = [...groups[gi].items];
+    const { ingredient_id: _drop, ...rest } = items[ii];
+    void _drop;
+    items[ii] = v.ingredient_id ? { ...rest, name: v.name, ingredient_id: v.ingredient_id } : { ...rest, name: v.name };
+    groups[gi] = { ...groups[gi], items };
+    updateIngredientGroups(groups);
+  }
+
+  async function createLibraryIngredient(name: string): Promise<LibraryIngredient | null> {
+    const res = await fetch('/api/ingredients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    const json = await res.json();
+    if (!res.ok) {
+      addToast(json.error || 'Failed to add the ingredient', 'error');
+      return null;
+    }
+    setLibrary((list) => (list.some((i) => i.id === json.data.id) ? list : [...list, { ...json.data, recipe_count: 0 }]));
+    addToast(`Added ${json.data.name} to the ingredient library`, 'success');
+    return json.data as LibraryIngredient;
   }
 
   function updateIngredient(gi: number, ii: number, field: keyof Ingredient, value: string | number | null) {
@@ -469,7 +502,7 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
             </div>
 
             {group.items.map((item, ii) => (
-              <div key={ii} className="flex items-center gap-2 mb-2">
+              <div key={ii} className="flex items-start gap-2 mb-2">
                 <GripVertical size={14} className="text-muted-foreground flex-shrink-0" />
                 <Input
                   type="number"
@@ -517,11 +550,19 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
+                <IngredientPicker
+                  name={item.name}
+                  ingredientId={item.ingredient_id}
+                  library={library}
+                  onChange={(v) => setIngredientName(gi, ii, v)}
+                  onCreate={createLibraryIngredient}
+                />
                 <Input
-                  value={item.name}
-                  onChange={(e) => updateIngredient(gi, ii, 'name', e.target.value)}
-                  placeholder="Ingredient name"
-                  className="flex-1 h-8 text-sm"
+                  value={item.note ?? ''}
+                  onChange={(e) => updateIngredient(gi, ii, 'note', e.target.value)}
+                  placeholder="Prep, e.g. diced"
+                  className="h-8 w-36 text-sm"
+                  aria-label="Preparation"
                 />
                 <Button
                   type="button"
