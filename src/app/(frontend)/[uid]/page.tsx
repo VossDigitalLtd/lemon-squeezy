@@ -175,7 +175,7 @@ export default async function RecipePage({ params }: PageProps) {
           </div>
 
           {imageUrl && (
-            <div className="relative order-first aspect-[16/10] overflow-hidden rounded-2xl bg-muted lg:order-none lg:aspect-[4/5]">
+            <div className="relative order-first aspect-[16/10] overflow-hidden rounded-2xl bg-muted lg:order-none lg:aspect-[9/10]">
               <Image
                 src={imageUrl}
                 alt={recipe.feature_image_alt || recipe.title}
