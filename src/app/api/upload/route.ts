@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { ok, apiError } from '@/lib/api/response';
 import { requireStaff } from '@/lib/auth/requireStaff';
 
@@ -35,7 +35,10 @@ export async function POST(request: Request) {
     const ext = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
 
-    const { data, error } = await supabase.storage
+    // Staff checked above; upload with the service role like other content
+    // writes, so the bucket needs no storage policy for signed-in users
+    const admin = createAdminClient();
+    const { data, error } = await admin.storage
       .from(RECIPE_IMAGE_BUCKET)
       .upload(fileName, file, {
         cacheControl: '31536000', // 1 year — images are immutable (new upload = new path)
@@ -48,7 +51,7 @@ export async function POST(request: Request) {
     }
 
     // Get public URL
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = admin.storage
       .from(RECIPE_IMAGE_BUCKET)
       .getPublicUrl(data.path);
 
