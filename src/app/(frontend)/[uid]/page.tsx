@@ -96,8 +96,12 @@ export default async function RecipePage({ params }: PageProps) {
             {recipe.subtitle && (
               <p className="mt-2.5 font-display text-[1.375rem] italic text-muted-foreground">{recipe.subtitle}</p>
             )}
-            {recipe.short_description && (
-              <p className="mt-5 max-w-[34rem] text-lg">{recipe.short_description}</p>
+            {/* The full description introduces the recipe; the short one is for cards */}
+            {(recipe.full_description || recipe.short_description) && (
+              <div
+                className="mt-5 max-w-[34rem] space-y-3 text-lg leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: textToHtml(recipe.full_description || recipe.short_description) }}
+              />
             )}
 
             {allCategories.length > 0 && (
@@ -183,14 +187,6 @@ export default async function RecipePage({ params }: PageProps) {
             </div>
           )}
         </header>
-
-        {/* Full description */}
-        {recipe.full_description && (
-          <div
-            className="mt-12 max-w-2xl space-y-4 text-lg leading-relaxed text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: textToHtml(recipe.full_description) }}
-          />
-        )}
 
         {/* Ingredients + method, with tips and serving suggestions under the method */}
         <div className="pt-16">

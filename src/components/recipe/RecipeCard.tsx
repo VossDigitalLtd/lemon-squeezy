@@ -10,6 +10,7 @@ interface RecipeCardProps {
   recipe: RecipeSummary;
   /** "lead" is the large first card in an editorial grid */
   variant?: 'default' | 'lead';
+  /** The short description under the title (on by default) */
   showDescription?: boolean;
   /** Rendered over the photo's top-right corner, above the card link (e.g. a favourite heart) */
   action?: React.ReactNode;
@@ -27,7 +28,7 @@ interface RecipeCardProps {
 export function RecipeCard({
   recipe,
   variant = 'default',
-  showDescription = variant === 'lead',
+  showDescription = true,
   action,
   priority,
   sizes = '(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw',
@@ -85,21 +86,31 @@ export function RecipeCard({
         {course && <span>{course}</span>}
       </div>
 
-      {/* Standard cards always take two title lines (clamped), so every card in a
-          grid is the same height and rows don't jump as the results change */}
+      {/* From two columns up, standard cards always take two title lines (clamped)
+          and two description lines, so every card in a row is the same height and
+          rows don't jump as the results change. One column has no row to match. */}
       <h3
         title={recipe.title}
         className={cn(
           'font-display text-balance decoration-primary decoration-[3px] underline-offset-4 group-hover:underline',
           // size/line-height together: cn() would drop a separate leading-* next to text-*
-          isLead ? 'text-[clamp(1.75rem,2.6vw,2.25rem)]/[1.1]' : 'line-clamp-2 min-h-[2.2em] text-[1.375rem]/[1.1]'
+          isLead ? 'text-[clamp(1.75rem,2.6vw,2.25rem)]/[1.1]' : 'line-clamp-2 text-[1.375rem]/[1.1] sm:min-h-[2.2em]'
         )}
       >
         {recipe.title}
       </h3>
 
-      {showDescription && recipe.short_description && (
-        <p className="line-clamp-2 text-[0.9375rem] text-muted-foreground">{recipe.short_description}</p>
+      {showDescription && (recipe.short_description || !isLead) && (
+        // Rendered empty on standard cards to keep the two lines (not needed in one column)
+        <p
+          className={cn(
+            'line-clamp-2 text-[0.9375rem]/[1.5] text-muted-foreground',
+            !isLead && 'sm:min-h-[3em]',
+            !recipe.short_description && 'hidden sm:block'
+          )}
+        >
+          {recipe.short_description}
+        </p>
       )}
 
       <Link href={`/${recipe.uid}`} className="absolute inset-0 z-10 rounded-2xl" aria-label={recipe.title} />
