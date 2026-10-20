@@ -86,32 +86,28 @@ export function RecipeCard({
         {course && <span>{course}</span>}
       </div>
 
-      {/* From two columns up, standard cards always take two title lines (clamped)
-          and two description lines, so every card in a row is the same height and
-          rows don't jump as the results change. One column has no row to match. */}
-      <h3
-        title={recipe.title}
-        className={cn(
-          'font-display text-balance decoration-primary decoration-[3px] underline-offset-4 group-hover:underline',
-          // size/line-height together: cn() would drop a separate leading-* next to text-*
-          isLead ? 'text-[clamp(1.75rem,2.6vw,2.25rem)]/[1.1]' : 'line-clamp-2 text-[1.375rem]/[1.1] sm:min-h-[2.2em]'
-        )}
-      >
-        {recipe.title}
-      </h3>
-
-      {showDescription && (recipe.short_description || !isLead) && (
-        // Rendered empty on standard cards to keep the two lines (not needed in one column)
-        <p
+      {/* From two columns up, standard cards keep room for two title lines and two
+          description lines, so every card in a row is the same height and rows don't
+          jump as the results change. The room is kept below the text, so a short
+          title still has its description right under it. One column has no row to match. */}
+      <div className={cn(!isLead && (showDescription ? 'sm:min-h-[6.25rem]' : 'sm:min-h-[3.025rem]'))}>
+        <h3
+          title={recipe.title}
           className={cn(
-            'line-clamp-2 text-[0.9375rem]/[1.5] text-muted-foreground',
-            !isLead && 'sm:min-h-[3em]',
-            !recipe.short_description && 'hidden sm:block'
+            'font-display text-balance decoration-primary decoration-[3px] underline-offset-4 group-hover:underline',
+            // size/line-height together: cn() would drop a separate leading-* next to text-*
+            isLead ? 'text-[clamp(1.75rem,2.6vw,2.25rem)]/[1.1]' : 'line-clamp-2 text-[1.375rem]/[1.1]'
           )}
         >
-          {recipe.short_description}
-        </p>
-      )}
+          {recipe.title}
+        </h3>
+
+        {showDescription && recipe.short_description && (
+          <p className={cn('line-clamp-2 text-[0.9375rem]/[1.5] text-muted-foreground', isLead ? 'mt-3.5' : 'mt-1.5')}>
+            {recipe.short_description}
+          </p>
+        )}
+      </div>
 
       <Link href={`/${recipe.uid}`} className="absolute inset-0 z-10 rounded-2xl" aria-label={recipe.title} />
     </article>
