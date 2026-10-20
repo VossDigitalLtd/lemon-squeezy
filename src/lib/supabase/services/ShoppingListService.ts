@@ -95,7 +95,7 @@ class ShoppingListServiceClass {
     if (!ids.length) return [];
     const { data } = await supabase
       .from('recipes')
-      .select('id, uid, title, servings, ingredient_groups, feature_image_path')
+      .select('id, uid, title, servings, ingredient_groups, feature_image_path, feature_image_focus_x, feature_image_focus_y')
       .in('id', ids);
     return (data || []) as ListRecipe[];
   }

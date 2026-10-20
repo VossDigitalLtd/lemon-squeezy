@@ -6,6 +6,22 @@ export function getImageUrl(path: string | null): string | null {
   return `${SUPABASE_URL}/storage/v1/object/public/recipe-images/${path}`;
 }
 
+/** A focal point from the browser: a whole 0–100 percentage, or null for the centre */
+export function cleanFocus(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : null;
+}
+
+/**
+ * Style for a recipe photo cropped to fill its frame (object-cover), keeping
+ * its focal point in view. Empty when it's the centre, the browser's default.
+ */
+export function imageFocus(recipe: { feature_image_focus_x?: number | null; feature_image_focus_y?: number | null }): React.CSSProperties {
+  const x = recipe.feature_image_focus_x ?? 50;
+  const y = recipe.feature_image_focus_y ?? 50;
+  return x === 50 && y === 50 ? {} : { objectPosition: `${x}% ${y}%` };
+}
+
 /** Convert newline-separated plain text to HTML paragraphs. */
 export function textToHtml(text: string): string {
   if (!text) return '';

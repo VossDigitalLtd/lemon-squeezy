@@ -12,6 +12,8 @@ export interface ListRecipe {
   servings: number | null;
   ingredient_groups: IngredientGroup[];
   feature_image_path?: string | null;
+  feature_image_focus_x?: number | null;
+  feature_image_focus_y?: number | null;
 }
 
 export interface ListEntry {

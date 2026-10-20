@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowDown, ChevronRight, Flame, Printer, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { RecipeService, FavouriteService } from '@/lib/supabase/services';
-import { getImageUrl, textToHtml } from '@/lib/recipes';
+import { getImageUrl, textToHtml, imageFocus } from '@/lib/recipes';
 import { formatIngredient } from '@/lib/units';
 import RecipeContentClient from './RecipeContentClient';
 import { FavouriteButton } from '@/components/recipe/FavouriteButton';
@@ -178,6 +178,7 @@ export default async function RecipePage({ params }: PageProps) {
             <div className="relative order-first aspect-square overflow-hidden rounded-2xl bg-muted lg:order-none lg:aspect-[9/10]">
               <Image
                 src={imageUrl}
+                style={imageFocus(recipe)}
                 alt={recipe.feature_image_alt || recipe.title}
                 fill
                 className="object-cover"

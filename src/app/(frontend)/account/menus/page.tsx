@@ -6,7 +6,7 @@ import { MealPlanService } from '@/lib/supabase/services';
 import { AccountPageHeader, FormError, pillButton } from '@/components/account/AccountUI';
 import { AddToListButton } from '@/components/recipe/AddToListButton';
 import { DeleteMenuButton } from './DeleteMenuButton';
-import { getImageUrl } from '@/lib/recipes';
+import { getImageUrl, imageFocus } from '@/lib/recipes';
 import { SLOT_LABELS, EMPTY_PICK_FILTERS, type SlotKind, type MealShape, type PickFilters } from '@/lib/mealPicker';
 import { whatWeHavingQuery } from '@/lib/whatWeHavingUrl';
 import { cn } from '@/utils/cn';
@@ -89,7 +89,7 @@ export default async function SavedMenusPage() {
                           {slotLabel(d.slot)}
                         </span>
                         <span className="relative size-12 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-                          {img && <Image src={img} alt="" fill sizes="48px" className="object-cover" />}
+                          {img && <Image src={img} alt="" fill sizes="48px" className="object-cover" style={imageFocus(r)} />}
                         </span>
                         <Link href={`/${r.uid}`} className="min-w-0 truncate font-display text-lg hover:underline">
                           {r.title}

@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
 import { RecipeService } from '@/lib/supabase/services';
 import { LogoMark, LogoTimer, LaceBand } from '@/components/brand';
-import { getImageUrl, textToHtml } from '@/lib/recipes';
+import { getImageUrl, textToHtml, imageFocus } from '@/lib/recipes';
 import { displayIngredient, formatAmount, ingredientLabel } from '@/lib/units';
 import { formatMinutesLong, formatMinutesShort } from '@/lib/time';
 import { restNoun, describeRests, timeSequence } from '@/lib/rest';
@@ -101,7 +101,7 @@ export default async function PrintRecipePage({ params, searchParams }: PageProp
           </div>
           {imageUrl && (
             <div className="relative h-[42mm] w-[52mm] overflow-hidden rounded-xl">
-              <Image src={imageUrl} alt="" fill sizes="200px" className="object-cover" priority />
+              <Image src={imageUrl} alt="" fill sizes="200px" className="object-cover" style={imageFocus(recipe)} priority />
             </div>
           )}
         </div>

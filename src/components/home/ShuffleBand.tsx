@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Shuffle } from 'lucide-react';
 import { LogoTimer, LogoRays } from '@/components/brand';
-import { getImageUrl } from '@/lib/recipes';
+import { getImageUrl, imageFocus } from '@/lib/recipes';
 import { formatMinutesShort } from '@/lib/time';
 import { cn } from '@/utils/cn';
 import type { RecipeSummary } from '@/types/recipe';
@@ -64,7 +64,7 @@ export function ShuffleBand({ recipes, className, headingLevel = 'h2' }: Shuffle
             <div className="grid grid-cols-1 items-center gap-5 rounded-2xl bg-white p-3.5 text-[oklch(0.145_0_0)] shadow-[0_12px_30px_-12px_oklch(0.3_0.08_95/0.45)] sm:grid-cols-[9rem_1fr]">
               <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-[oklch(0.95_0.02_95)] sm:h-27 sm:w-36 sm:aspect-auto">
                 {imageUrl ? (
-                  <Image src={imageUrl} alt={picked.feature_image_alt || ''} fill sizes="144px" className="object-cover" />
+                  <Image src={imageUrl} alt={picked.feature_image_alt || ''} fill sizes="144px" className="object-cover" style={imageFocus(picked)} />
                 ) : (
                   <svg viewBox="0 0 180 180" className="absolute inset-0 m-auto w-1/3 text-[oklch(0.145_0_0)]/30" aria-hidden="true">
                     <LogoRays />

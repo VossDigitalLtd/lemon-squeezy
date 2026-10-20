@@ -8,7 +8,7 @@ import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { FavouriteHeart } from '@/components/recipe/FavouriteHeart';
 import { FavouriteButton } from '@/components/recipe/FavouriteButton';
 import { ShuffleBand } from '@/components/home/ShuffleBand';
-import { getImageUrl } from '@/lib/recipes';
+import { getImageUrl, imageFocus } from '@/lib/recipes';
 import { bucketByTime, formatMinutesLong, formatMinutesShort } from '@/lib/time';
 import { APP_NAME, APP_DESCRIPTION, features } from '@/lib/config/app';
 import type { Metadata } from 'next';
@@ -74,6 +74,7 @@ export default async function HomePage() {
             {featured.feature_image_path && (
               <Image
                 src={getImageUrl(featured.feature_image_path)!}
+                style={imageFocus(featured)}
                 alt={featured.feature_image_alt || ''}
                 fill
                 priority
@@ -271,6 +272,7 @@ export default async function HomePage() {
             <Link href={`/${cypriotLead.uid}`} className="group relative aspect-[4/3] overflow-hidden rounded-2xl">
               <Image
                 src={getImageUrl(cypriotLead.feature_image_path)!}
+                style={imageFocus(cypriotLead)}
                 alt={cypriotLead.feature_image_alt || ''}
                 fill
                 sizes="(min-width: 1024px) 50vw, 100vw"
@@ -301,7 +303,7 @@ export default async function HomePage() {
                       <li key={r.id} className="border-b border-lace">
                         <Link href={`/${r.uid}`} className="group flex items-center gap-4 py-3.5">
                           <span className="relative size-14 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-                            {img && <Image src={img} alt="" fill sizes="56px" className="object-cover" />}
+                            {img && <Image src={img} alt="" fill sizes="56px" className="object-cover" style={imageFocus(r)} />}
                           </span>
                           <span className="min-w-0 flex-1">
                             <strong className="block font-display text-[1.1875rem] font-normal leading-tight decoration-primary decoration-[3px] underline-offset-[3px] group-hover:underline">

@@ -7,7 +7,7 @@ import { ChevronDown, ExternalLink, Shuffle, Star, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/lib/toast/context';
-import { getImageUrl } from '@/lib/recipes';
+import { getImageUrl, imageFocus } from '@/lib/recipes';
 import { addWeeks, formatWeekRange, weekStartOf } from '@/lib/weeks';
 import { cn } from '@/utils/cn';
 import type { RecipeSummary } from '@/types/recipe';
@@ -209,7 +209,7 @@ function WeekRow({
 
       <div className="flex min-w-0 items-center gap-3">
         <span className="relative size-12 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-          {img && <Image src={img} alt="" fill sizes="48px" className="object-cover" />}
+          {img && recipe && <Image src={img} alt="" fill sizes="48px" className="object-cover" style={imageFocus(recipe)} />}
         </span>
         <div className="min-w-0 flex-1">
           <Select value={recipe?.id ?? ''} onValueChange={onChoose} disabled={saving}>

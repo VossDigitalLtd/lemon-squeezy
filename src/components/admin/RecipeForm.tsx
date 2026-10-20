@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import { Plus, Trash2, GripVertical, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,6 +35,7 @@ import type {
 } from '@/types/recipe';
 import { IngredientPicker } from './IngredientPicker';
 import { MethodCheckPanel } from '@/components/admin/MethodCheckPanel';
+import { FocalPointPicker } from '@/components/admin/FocalPointPicker';
 import { EMPTY_METHOD_LINKS } from '@/lib/methodLinks';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -82,6 +82,8 @@ function recipeToFormData(recipe: Recipe): RecipeFormData {
     full_description: recipe.full_description,
     feature_image_path: recipe.feature_image_path || undefined,
     feature_image_alt: recipe.feature_image_alt || undefined,
+    feature_image_focus_x: recipe.feature_image_focus_x ?? null,
+    feature_image_focus_y: recipe.feature_image_focus_y ?? null,
     prep_time: recipe.prep_time,
     cook_time: recipe.cook_time,
     servings: recipe.servings,
@@ -171,7 +173,8 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
 
       if (!res.ok) throw new Error(json.error || 'Upload failed');
 
-      setForm((prev) => ({ ...prev, feature_image_path: json.data.path }));
+      // A new photo starts with its focal point in the centre
+      setForm((prev) => ({ ...prev, feature_image_path: json.data.path, feature_image_focus_x: null, feature_image_focus_y: null }));
       addToast('Image uploaded', 'success');
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Failed to upload image', 'error');
@@ -409,48 +412,62 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
 
       {/* ── Feature Image ── */}
       <Section title="Feature Image">
-        <div className="flex items-start gap-4">
-          {imageUrl ? (
-            <div className="relative h-32 w-48 rounded-lg overflow-hidden border border-border">
-              <Image src={imageUrl} alt={form.feature_image_alt || 'Recipe image'} fill className="object-cover" />
-              <button
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleImageUpload}
+          className="hidden"
+        />
+        {imageUrl ? (
+          <>
+            <FocalPointPicker
+              src={imageUrl}
+              alt={form.feature_image_alt || 'Recipe image'}
+              x={form.feature_image_focus_x}
+              y={form.feature_image_focus_y}
+              onChange={({ x, y }) => setForm((prev) => ({ ...prev, feature_image_focus_x: x, feature_image_focus_y: y }))}
+            />
+            <Field label="Alt Text">
+              <Input
+                value={form.feature_image_alt || ''}
+                onChange={(e) => updateField('feature_image_alt', e.target.value)}
+                placeholder="Describe the image"
+              />
+            </Field>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                <Upload size={13} className="mr-1" /> {uploading ? 'Uploading...' : 'Replace image'}
+              </Button>
+              <Button
                 type="button"
-                onClick={() => setForm((prev) => ({ ...prev, feature_image_path: undefined, feature_image_alt: undefined }))}
-                className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80"
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  setForm((prev) => ({
+                    ...prev,
+                    feature_image_path: undefined,
+                    feature_image_alt: undefined,
+                    feature_image_focus_x: null,
+                    feature_image_focus_y: null,
+                  }))
+                }
               >
-                <X size={12} />
-              </button>
+                <X size={13} className="mr-1" /> Remove image
+              </Button>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="h-32 w-48 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
-            >
-              <Upload size={20} />
-              <span className="text-xs">{uploading ? 'Uploading...' : 'Upload image'}</span>
-            </button>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            onChange={handleImageUpload}
-            className="hidden"
-          />
-          {imageUrl && (
-            <div className="flex-1">
-              <Field label="Alt Text">
-                <Input
-                  value={form.feature_image_alt || ''}
-                  onChange={(e) => updateField('feature_image_alt', e.target.value)}
-                  placeholder="Describe the image"
-                />
-              </Field>
-            </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="h-32 w-48 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
+          >
+            <Upload size={20} />
+            <span className="text-xs">{uploading ? 'Uploading...' : 'Upload image'}</span>
+          </button>
+        )}
       </Section>
 
       {/* ── Times & Servings ── */}

@@ -7,7 +7,7 @@ import { Check, ClipboardCopy, Minus, Plus, Printer, ListChecks, Trash2, X } fro
 import { AccountPageHeader, FormError, pillButton } from '@/components/account/AccountUI';
 import { LogoMark } from '@/components/brand';
 import { useToast } from '@/hooks/useToast';
-import { getImageUrl } from '@/lib/recipes';
+import { getImageUrl, imageFocus } from '@/lib/recipes';
 import { combineIngredients, formatLine, listAsText, type ListRecipe, type LibraryLookup, type ShoppingLine } from '@/lib/shoppingList';
 import { AISLES, AISLE_LABELS, type Aisle } from '@/lib/ingredientMatch';
 import type { ShoppingListDoc } from '@/lib/supabase/services/ShoppingListService';
@@ -208,7 +208,7 @@ export default function ShoppingListClient() {
                   return (
                     <li key={recipe.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-2.5">
                       <span className="relative size-12 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-                        {img && <Image src={img} alt="" fill sizes="48px" className="object-cover" />}
+                        {img && <Image src={img} alt="" fill sizes="48px" className="object-cover" style={imageFocus(recipe)} />}
                       </span>
                       <Link href={`/${recipe.uid}`} className="min-w-0 flex-1 truncate font-medium hover:underline">
                         {recipe.title}

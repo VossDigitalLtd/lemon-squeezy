@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { AddToListButton } from '@/components/recipe/AddToListButton';
 import { SignInPromptDialog } from '@/components/auth/SignInPromptDialog';
 import { useToast } from '@/hooks/useToast';
-import { getImageUrl } from '@/lib/recipes';
+import { getImageUrl, imageFocus } from '@/lib/recipes';
 import { formatMinutesShort } from '@/lib/time';
 import {
   buildPairings,
@@ -427,7 +427,7 @@ function DishResult({
         >
           <div className="relative aspect-[4/3] bg-muted sm:aspect-auto sm:min-h-80">
             {img ? (
-              <Image src={img} alt={dish.feature_image_alt || ''} fill sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
+              <Image src={img} alt={dish.feature_image_alt || ''} fill sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" style={imageFocus(dish)} />
             ) : (
               <Placeholder />
             )}
@@ -573,7 +573,7 @@ function MealResult({
                     <Link href={`/${r.uid}`} className="group flex min-w-0 items-center gap-4">
                       <span className="relative size-18 flex-shrink-0 overflow-hidden rounded-xl bg-muted sm:size-20">
                         {getImageUrl(r.feature_image_path) ? (
-                          <Image src={getImageUrl(r.feature_image_path)!} alt="" fill sizes="80px" className="object-cover" />
+                          <Image src={getImageUrl(r.feature_image_path)!} alt="" fill sizes="80px" className="object-cover" style={imageFocus(r)} />
                         ) : (
                           <Placeholder small />
                         )}

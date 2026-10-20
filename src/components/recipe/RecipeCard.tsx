@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { LogoTimer, LogoRays } from '@/components/brand';
-import { getImageUrl } from '@/lib/recipes';
+import { getImageUrl, imageFocus } from '@/lib/recipes';
 import { formatMinutesShort } from '@/lib/time';
 import { cn } from '@/utils/cn';
 import type { RecipeSummary } from '@/types/recipe';
@@ -50,6 +50,7 @@ export function RecipeCard({
         {imageUrl ? (
           <Image
             src={imageUrl}
+            style={imageFocus(recipe)}
             alt={recipe.feature_image_alt || ''}
             fill
             sizes={sizes}

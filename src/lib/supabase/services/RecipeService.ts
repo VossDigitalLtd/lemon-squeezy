@@ -17,6 +17,7 @@ import { BaseQueryService } from '../core/BaseQueryService';
 import { weekStartOf } from '@/lib/weeks';
 import { cleanRestPeriods, type RestPeriod } from '@/lib/rest';
 import { cleanMethodLinks } from '@/lib/methodLinks';
+import { cleanFocus } from '@/lib/recipes';
 import { parseIngredientName } from '@/lib/ingredientMatch';
 import type { ServiceResponse } from '@/types';
 import type {
@@ -29,7 +30,7 @@ import type {
 // Select strings for Supabase queries
 export const RECIPE_SUMMARY_SELECT = `
   id, uid, title, subtitle, short_description,
-  feature_image_path, feature_image_alt,
+  feature_image_path, feature_image_alt, feature_image_focus_x, feature_image_focus_y,
   prep_time, cook_time, rest_time, total_time,
   recipe_categories(category:categories(id, type, uid, title)),
   recipe_ingredients(ingredient_id)
@@ -37,7 +38,7 @@ export const RECIPE_SUMMARY_SELECT = `
 
 const RECIPE_FULL_SELECT = `
   id, uid, title, subtitle, short_description, full_description,
-  feature_image_path, feature_image_alt,
+  feature_image_path, feature_image_alt, feature_image_focus_x, feature_image_focus_y,
   prep_time, cook_time, rest_time, rest_periods, total_time, servings, calories_per_serving,
   ingredient_groups, method_groups, method_links,
   serving_suggestions, tips,
@@ -45,7 +46,7 @@ const RECIPE_FULL_SELECT = `
   created_at, updated_at,
   recipe_categories(category:categories(id, type, uid, title)),
   recipe_accompanying!recipe_accompanying_recipe_id_fkey(accompanying:recipes!recipe_accompanying_accompanying_id_fkey(
-    id, uid, title, subtitle, short_description, feature_image_path, feature_image_alt,
+    id, uid, title, subtitle, short_description, feature_image_path, feature_image_alt, feature_image_focus_x, feature_image_focus_y,
     prep_time, cook_time, rest_time, total_time,
     recipe_categories(category:categories(id, type, uid, title))
   ))
@@ -60,6 +61,8 @@ export interface RawRecipeRow {
   full_description?: string;
   feature_image_path: string | null;
   feature_image_alt: string | null;
+  feature_image_focus_x?: number | null;
+  feature_image_focus_y?: number | null;
   prep_time?: number | null;
   cook_time?: number | null;
   total_time?: number | null;
@@ -101,6 +104,8 @@ export function toRecipeSummary(row: RawRecipeRow): RecipeSummary {
     short_description: row.short_description,
     feature_image_path: row.feature_image_path,
     feature_image_alt: row.feature_image_alt,
+    feature_image_focus_x: row.feature_image_focus_x ?? null,
+    feature_image_focus_y: row.feature_image_focus_y ?? null,
     prep_time: row.prep_time ?? null,
     cook_time: row.cook_time ?? null,
     rest_time: row.rest_time ?? null,
@@ -120,6 +125,8 @@ function toRecipe(row: RawRecipeRow): Recipe {
     full_description: row.full_description || '',
     feature_image_path: row.feature_image_path,
     feature_image_alt: row.feature_image_alt,
+    feature_image_focus_x: row.feature_image_focus_x ?? null,
+    feature_image_focus_y: row.feature_image_focus_y ?? null,
     prep_time: row.prep_time ?? null,
     cook_time: row.cook_time ?? null,
     servings: row.servings ?? null,
@@ -368,6 +375,8 @@ class RecipeServiceClass extends BaseQueryService {
       const recipeData = {
         ...rest,
         rest_periods: cleanRestPeriods(rest.rest_periods),
+        feature_image_focus_x: cleanFocus(rest.feature_image_focus_x),
+        feature_image_focus_y: cleanFocus(rest.feature_image_focus_y),
         ingredient_groups: await linkIngredients(supabase, rest.ingredient_groups),
         ...(rest.method_links ? { method_links: cleanMethodLinks(rest.method_links) } : {}),
       };
@@ -426,6 +435,8 @@ class RecipeServiceClass extends BaseQueryService {
       const recipeData = {
         ...rest,
         rest_periods: cleanRestPeriods(rest.rest_periods),
+        feature_image_focus_x: cleanFocus(rest.feature_image_focus_x),
+        feature_image_focus_y: cleanFocus(rest.feature_image_focus_y),
         ingredient_groups: await linkIngredients(supabase, rest.ingredient_groups),
         ...(rest.method_links ? { method_links: cleanMethodLinks(rest.method_links) } : {}),
       };

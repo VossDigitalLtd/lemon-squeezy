@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { useDebounce } from '@/hooks';
 import { useToast } from '@/lib/toast/context';
-import { getImageUrl } from '@/lib/recipes';
+import { getImageUrl, imageFocus } from '@/lib/recipes';
 import type { RecipeSummary } from '@/types/recipe';
 
 export default function AdminRecipesPage() {
@@ -134,6 +134,7 @@ export default function AdminRecipesPage() {
                       width={48}
                       height={48}
                       className="h-full w-full object-cover"
+                      style={imageFocus(recipe)}
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">

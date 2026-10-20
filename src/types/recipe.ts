@@ -64,6 +64,9 @@ export interface Recipe {
   full_description: string;
   feature_image_path: string | null;
   feature_image_alt: string | null;
+  /** Focal point, % across and down (null: centre) */
+  feature_image_focus_x?: number | null;
+  feature_image_focus_y?: number | null;
   prep_time: number | null;
   cook_time: number | null;
   servings: number | null;
@@ -99,6 +102,9 @@ export interface RecipeSummary {
   short_description: string;
   feature_image_path: string | null;
   feature_image_alt: string | null;
+  /** Focal point, % across and down (null: centre) */
+  feature_image_focus_x?: number | null;
+  feature_image_focus_y?: number | null;
   prep_time: number | null;
   cook_time: number | null;
   rest_time: number | null;
@@ -120,6 +126,9 @@ export interface RecipeFormData {
   full_description: string;
   feature_image_path?: string;
   feature_image_alt?: string;
+  /** Focal point, % across and down (null: centre) */
+  feature_image_focus_x?: number | null;
+  feature_image_focus_y?: number | null;
   prep_time: number | null;
   cook_time: number | null;
   servings: number | null;
