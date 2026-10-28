@@ -32,6 +32,7 @@ import type {
   IngredientGroup,
   LibraryIngredient,
   MethodGroup,
+  RecipeSummary,
 } from '@/types/recipe';
 import { IngredientPicker } from './IngredientPicker';
 import { MethodCheckPanel } from '@/components/admin/MethodCheckPanel';
@@ -136,6 +137,28 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => json?.data && setLibrary(json.data))
       .catch(() => {});
+  }, []);
+
+  // Every recipe, for the accompanying-recipes picker (the API pages at 100)
+  const [allRecipes, setAllRecipes] = useState<RecipeSummary[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const found: RecipeSummary[] = [];
+      for (let page = 1; ; page++) {
+        const res = await fetch(`/api/recipe?limit=100&page=${page}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Failed to load recipes');
+        const json = await res.json();
+        found.push(...(json.data ?? []));
+        if (!json.pagination?.hasNextPage) break;
+      }
+      if (!cancelled) setAllRecipes(found);
+    })().catch(() => {
+      if (!cancelled) setAllRecipes([]);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -297,6 +320,16 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
       return {
         ...prev,
         [key]: ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
+      };
+    });
+  }
+
+  function toggleAccompanying(id: string) {
+    setForm((prev) => {
+      const ids = prev.accompanying_recipe_ids;
+      return {
+        ...prev,
+        accompanying_recipe_ids: ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
       };
     });
   }
@@ -754,6 +787,17 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
         />
       </Section>
 
+      {/* ── Accompanying Recipes ── */}
+      <Section title="Accompanying Recipes">
+        <AccompanyingPicker
+          recipes={allRecipes}
+          currentId={recipe?.id}
+          initial={recipe?.accompanying_recipes ?? []}
+          selectedIds={form.accompanying_recipe_ids}
+          onToggle={toggleAccompanying}
+        />
+      </Section>
+
       {/* ── Actions ── */}
       <div className="flex items-center gap-3 pt-4 border-t border-border">
         <Button type="submit" disabled={saving}>
@@ -795,6 +839,64 @@ interface CategoryPickerProps {
   categories: Category[];
   selectedIds: string[];
   onToggle: (id: string) => void;
+}
+
+interface AccompanyingPickerProps {
+  /** null while loading */
+  recipes: RecipeSummary[] | null;
+  /** The recipe being edited, left out of the list */
+  currentId?: string;
+  /** Saved links, so they show while the full list loads */
+  initial: RecipeSummary[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+}
+
+function AccompanyingPicker({ recipes, currentId, initial, selectedIds, onToggle }: AccompanyingPickerProps) {
+  const [search, setSearch] = useState('');
+
+  const pool = (recipes ?? initial).filter((r) => r.id !== currentId);
+  const term = search.trim().toLowerCase();
+  const matches = term ? pool.filter((r) => r.title.toLowerCase().includes(term)) : pool;
+  // Saved links first, then the rest A–Z (by saved links, so rows don't jump as you tick)
+  const savedIds = initial.map((r) => r.id);
+  const sorted = [...matches].sort((a, b) => {
+    const diff = Number(savedIds.includes(b.id)) - Number(savedIds.includes(a.id));
+    return diff || a.title.localeCompare(b.title);
+  });
+
+  return (
+    <div>
+      <p className="text-sm text-muted-foreground mb-3">
+        Shown on the recipe page as recipes that go with this one.
+        {selectedIds.length > 0 && ` ${selectedIds.length} selected.`}
+      </p>
+      <Input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search recipes"
+        className="mb-2"
+      />
+      <div className="max-h-72 overflow-y-auto rounded-md border border-border divide-y divide-border">
+        {sorted.map((r) => (
+          <label key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-muted">
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(r.id)}
+              onChange={() => onToggle(r.id)}
+              className="h-4 w-4 accent-primary"
+            />
+            <span className="text-foreground">{r.title}</span>
+          </label>
+        ))}
+        {recipes === null && <p className="px-3 py-2 text-sm text-muted-foreground">Loading recipes…</p>}
+        {recipes !== null && sorted.length === 0 && (
+          <p className="px-3 py-2 text-sm text-muted-foreground">No recipes match.</p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function CategoryPicker({ label, categories, selectedIds, onToggle }: CategoryPickerProps) {
