@@ -10,12 +10,18 @@ import { formatMinutesShort } from '@/lib/time';
 import { cn } from '@/utils/cn';
 import type { RecipeSummary } from '@/types/recipe';
 
+/** Just what the band shows, so the page doesn't send every recipe in full */
+export type ShuffleRecipe = Pick<
+  RecipeSummary,
+  'id' | 'uid' | 'title' | 'feature_image_path' | 'feature_image_alt' | 'feature_image_focus_x' | 'feature_image_focus_y' | 'total_time'
+> & { course_categories: { title: string }[] };
+
 /**
  * Yellow "What We Having?" band: picks a random recipe from `recipes`,
  * never the same one twice in a row.
  */
 interface ShuffleBandProps {
-  recipes: RecipeSummary[];
+  recipes: ShuffleRecipe[];
   className?: string;
   /** Use "h1" when the band is the page itself (/what-we-having) */
   headingLevel?: 'h1' | 'h2';
@@ -23,7 +29,7 @@ interface ShuffleBandProps {
 
 export function ShuffleBand({ recipes, className, headingLevel = 'h2' }: ShuffleBandProps) {
   const Heading = headingLevel;
-  const [picked, setPicked] = useState<RecipeSummary | null>(null);
+  const [picked, setPicked] = useState<ShuffleRecipe | null>(null);
 
   if (recipes.length === 0) return null;
 

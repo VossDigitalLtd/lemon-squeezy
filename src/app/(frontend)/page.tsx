@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Heart } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUserId } from '@/lib/supabase/server';
 import { RecipeService, CategoryService, FavouriteService } from '@/lib/supabase/services';
 import { LogoTimer, LaceBand } from '@/components/brand';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { FavouriteHeart } from '@/components/recipe/FavouriteHeart';
 import { FavouriteButton } from '@/components/recipe/FavouriteButton';
-import { ShuffleBand } from '@/components/home/ShuffleBand';
+import { ShuffleBand, type ShuffleRecipe } from '@/components/home/ShuffleBand';
 import { getImageUrl, imageFocus } from '@/lib/recipes';
 import { bucketByTime, formatMinutesLong, formatMinutesShort } from '@/lib/time';
 import { APP_NAME, APP_DESCRIPTION, features } from '@/lib/config/app';
@@ -28,27 +28,23 @@ const TIME_LABELS: Record<number, string> = {
 
 export default async function HomePage() {
   const supabase = await createClient();
+  // Checked locally, so the user's favourites load alongside everything else
+  const userId = await getUserId(supabase);
+  const user = userId ? { id: userId } : null;
 
-  const [featuredResult, recipesResult, categoriesResult, cypriotResult, userResult] = await Promise.all([
+  const [featuredResult, recipesResult, categoriesResult, cypriotResult, favouritesResult, favouriteIdsResult] = await Promise.all([
     RecipeService.getFeatured(supabase),
     RecipeService.getAll(supabase, { limit: 100 }),
     CategoryService.getHomeCategories(supabase),
     RecipeService.getByCategoryUid(supabase, 'cuisine', 'cypriot', { limit: 8 }),
-    supabase.auth.getUser(),
+    userId ? FavouriteService.getUserFavourites(supabase, userId, { limit: 12 }) : null,
+    userId ? FavouriteService.getUserFavouriteIds(supabase, userId) : null,
   ]);
 
   const featured = featuredResult.success ? featuredResult.data : null;
   const recipes = recipesResult.success ? recipesResult.data! : [];
   const homeCategories = categoriesResult.success ? categoriesResult.data! : [];
   const cypriot = cypriotResult.success ? cypriotResult.data! : [];
-  const user = userResult.data?.user;
-
-  const [favouritesResult, favouriteIdsResult] = user
-    ? await Promise.all([
-        FavouriteService.getUserFavourites(supabase, user.id, { limit: 12 }),
-        FavouriteService.getUserFavouriteIds(supabase, user.id),
-      ])
-    : [null, null];
   const favourites = favouritesResult?.success ? favouritesResult.data! : [];
   const favouriteIds = new Set(favouriteIdsResult?.success ? favouriteIdsResult.data! : []);
 
@@ -335,12 +331,27 @@ export default async function HomePage() {
       )}
 
       {/* ── What We Having? ── */}
-      <ShuffleBand recipes={recipes} className={cypriotLead ? undefined : 'mt-20'} />
+      <ShuffleBand recipes={recipes.map(toShuffleRecipe)} className={cypriotLead ? undefined : 'mt-20'} />
     </>
   );
 }
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
+
+/** Just the fields the shuffle band shows, so the page doesn't send every recipe in full */
+function toShuffleRecipe(r: RecipeSummary): ShuffleRecipe {
+  return {
+    id: r.id,
+    uid: r.uid,
+    title: r.title,
+    feature_image_path: r.feature_image_path,
+    feature_image_alt: r.feature_image_alt,
+    feature_image_focus_x: r.feature_image_focus_x,
+    feature_image_focus_y: r.feature_image_focus_y,
+    total_time: r.total_time,
+    course_categories: r.course_categories.slice(0, 1).map((c) => ({ title: c.title })),
+  };
+}
 
 function HeroTime({ label, minutes }: { label: string; minutes: number }) {
   return (
