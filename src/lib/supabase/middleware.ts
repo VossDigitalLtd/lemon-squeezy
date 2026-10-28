@@ -43,12 +43,14 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   );
 
   // IMPORTANT: Avoid writing any logic between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
+  // supabase.auth.getClaims(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() refreshes an expired session like getUser(), but checks the
+  // token's signature locally rather than asking Supabase Auth, so it adds no
+  // network round trip to every page load.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const user = claimsData?.claims?.sub ? { id: claimsData.claims.sub } : null;
 
   // Block /signup when public sign-up is disabled
   const signupEnabled = process.env.NEXT_PUBLIC_FEATURE_SIGNUP === 'true';

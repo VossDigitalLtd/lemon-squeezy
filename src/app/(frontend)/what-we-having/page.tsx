@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUserId } from '@/lib/supabase/server';
 import { RecipeService, CategoryService, FavouriteService } from '@/lib/supabase/services';
 import { parseWhatWeHaving } from '@/lib/whatWeHavingUrl';
 import WhatWeHavingClient from './WhatWeHavingClient';
@@ -15,16 +15,15 @@ interface PageProps {
 
 export default async function WhatWeHavingPage({ searchParams }: PageProps) {
   const supabase = await createClient();
-  const [recipesResult, categoriesResult, pairingsResult, userResult, params] = await Promise.all([
+  // Checked locally, so the user's favourites load alongside everything else
+  const userId = await getUserId(supabase);
+  const [recipesResult, categoriesResult, pairingsResult, favResult, params] = await Promise.all([
     RecipeService.getAll(supabase, { limit: 100 }),
     CategoryService.getAllGrouped(supabase),
     RecipeService.getPairingRows(supabase),
-    supabase.auth.getUser(),
+    userId ? FavouriteService.getUserFavouriteIds(supabase, userId) : null,
     searchParams,
   ]);
-
-  const user = userResult.data?.user;
-  const favResult = user ? await FavouriteService.getUserFavouriteIds(supabase, user.id) : null;
 
   return (
     <WhatWeHavingClient
@@ -32,7 +31,7 @@ export default async function WhatWeHavingPage({ searchParams }: PageProps) {
       categories={categoriesResult.success ? categoriesResult.data! : { courses: [], cuisines: [], dietaries: [] }}
       pairingRows={pairingsResult.success ? pairingsResult.data! : []}
       favouriteIds={favResult?.success ? favResult.data! : []}
-      isLoggedIn={!!user}
+      isLoggedIn={!!userId}
       initialState={parseWhatWeHaving(params)}
     />
   );

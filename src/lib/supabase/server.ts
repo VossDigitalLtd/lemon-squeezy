@@ -66,3 +66,15 @@ export function createAdminClient(): SupabaseClient {
     }
   );
 }
+
+/**
+ * The signed-in user's id, or null. Checks the session token's signature
+ * locally (asymmetric JWT keys, cached across requests), so unlike
+ * auth.getUser() it costs no round trip to Supabase Auth. Use for reads
+ * on page loads; keep getUser() where a revoked session must be refused
+ * straight away.
+ */
+export async function getUserId(supabase: SupabaseClient): Promise<string | null> {
+  const { data } = await supabase.auth.getClaims();
+  return data?.claims?.sub ?? null;
+}

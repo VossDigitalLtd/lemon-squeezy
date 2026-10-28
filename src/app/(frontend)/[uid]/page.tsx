@@ -1,8 +1,9 @@
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowDown, ChevronRight, Flame, Printer, Users } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUserId } from '@/lib/supabase/server';
 import { RecipeService, FavouriteService } from '@/lib/supabase/services';
 import { getImageUrl, textToHtml, imageFocus } from '@/lib/recipes';
 import { formatIngredient } from '@/lib/units';
@@ -22,10 +23,12 @@ interface PageProps {
   params: Promise<{ uid: string }>;
 }
 
+// generateMetadata and the page both need the recipe: one query per request
+const getRecipe = cache(async (uid: string) => RecipeService.getByUid(await createClient(), uid));
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { uid } = await params;
-  const supabase = await createClient();
-  const result = await RecipeService.getByUid(supabase, uid);
+  const result = await getRecipe(uid);
 
   if (!result.success || !result.data) {
     return { title: 'Recipe Not Found' };
@@ -48,7 +51,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function RecipePage({ params }: PageProps) {
   const { uid } = await params;
   const supabase = await createClient();
-  const result = await RecipeService.getByUid(supabase, uid);
+  // The user id is checked locally, so the recipe and the favourites load side by side
+  const userId = await getUserId(supabase);
+  const [result, favouriteIdsResult] = await Promise.all([
+    getRecipe(uid),
+    userId ? FavouriteService.getUserFavouriteIds(supabase, userId) : null,
+  ]);
 
   if (!result.success || !result.data) {
     notFound();
@@ -63,11 +71,7 @@ export default async function RecipePage({ params }: PageProps) {
   ];
   const course = recipe.course_categories[0];
 
-  // Check favourite status for logged-in users
-  const { data: { user } } = await supabase.auth.getUser();
-  const isFavourited = user
-    ? await FavouriteService.isFavourited(supabase, user.id, recipe.id)
-    : false;
+  const isFavourited = !!favouriteIdsResult?.data?.includes(recipe.id);
 
   return (
     <>
@@ -162,7 +166,7 @@ export default async function RecipePage({ params }: PageProps) {
                 <ArrowDown size={17} />
                 Jump to recipe
               </a>
-              <FavouriteButton recipeId={recipe.id} recipeTitle={recipe.title} initialFavourited={isFavourited} isLoggedIn={!!user} />
+              <FavouriteButton recipeId={recipe.id} recipeTitle={recipe.title} initialFavourited={isFavourited} isLoggedIn={!!userId} />
               <CookModeButton />
               <Link
                 href={`/print/${recipe.uid}`}
