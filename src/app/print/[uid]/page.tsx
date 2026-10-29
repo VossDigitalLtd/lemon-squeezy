@@ -53,10 +53,7 @@ export default async function PrintRecipePage({ params, searchParams }: PageProp
         <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <LogoMark size={40} className="text-[#111]" />
-            <div className="leading-none">
-              <p className="font-display text-[22px]">LemonSqueezy</p>
-              <p className="text-[9px] font-semibold">NE1forSeconds</p>
-            </div>
+            <p className="font-display text-[22px] leading-none">LemonSqueezy</p>
           </div>
           {siteUrl && <p className="text-right text-[10px] text-[#555]">{`${siteUrl.replace(/^https?:\/\//, '')}/${recipe.uid}`}</p>}
         </header>
@@ -170,9 +167,8 @@ export default async function PrintRecipePage({ params, searchParams }: PageProp
           </section>
         </div>
 
-        <footer className="mt-8 flex items-center justify-between border-t border-[#e5e5e5] pt-3 text-[9.5px] text-[#666]">
-          <span>Lemon Squeezy · Simple, delicious recipes made easy · Καλή όρεξη</span>
-          <span>Brought to you by NE1forSeconds</span>
+        <footer className="mt-8 border-t border-[#e5e5e5] pt-3 text-[9.5px] text-[#666]">
+          Lemon Squeezy · Simple, delicious recipes made easy · Καλή όρεξη
         </footer>
       </article>
     </div>

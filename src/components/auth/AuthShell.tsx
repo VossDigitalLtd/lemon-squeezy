@@ -26,10 +26,7 @@ export function AuthShell({ photos = [], children }: { photos?: AuthPhoto[]; chi
       <div className="flex flex-col px-4 py-6 sm:px-10">
         <Link href="/" className="flex w-fit items-center gap-2.5" aria-label={`${APP_NAME} home`}>
           <LogoMark size={44} />
-          <span className="leading-none">
-            <span className="block font-display text-2xl">{APP_NAME.replace(/\s+/g, '')}</span>
-            <span className="block text-[0.6875rem] font-semibold">NE1forSeconds</span>
-          </span>
+          <span className="font-display text-2xl leading-none">{APP_NAME.replace(/\s+/g, '')}</span>
         </Link>
         <div className="flex flex-1 items-center justify-center py-10">
           <div className="w-full max-w-sm">{children}</div>

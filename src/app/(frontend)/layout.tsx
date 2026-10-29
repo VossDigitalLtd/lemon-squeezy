@@ -25,9 +25,6 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
               </Link>
             ))}
           </nav>
-          <p className="font-semibold">
-            Brought to you by <span className="border-b-2 border-primary">NE1forSeconds</span>
-          </p>
           <p className="text-[0.9375rem] text-footer-foreground/70">
             Lemon Squeezy · Simple, delicious recipes made easy · Καλή όρεξη
           </p>

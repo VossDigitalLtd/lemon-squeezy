@@ -51,12 +51,7 @@ export function SiteHeader() {
       <div className="mx-auto flex h-18 max-w-7xl items-center gap-6 px-4 sm:px-8 xl:gap-10">
         <Link href="/" className="flex flex-shrink-0 items-center gap-2.5" aria-label={`${APP_NAME} home`}>
           <LogoMark size={44} className="transition-transform duration-500 hover:rotate-[30deg] motion-reduce:transition-none" />
-          <span className="leading-none">
-            <span className="block font-display text-[1.375rem] tracking-[-0.01em] sm:text-[1.6rem]">{APP_NAME.replace(/\s+/g, '')}</span>
-            <span className="mt-0.5 block text-[0.6875rem] font-semibold tracking-[0.02em] text-muted-foreground">
-              NE1forSeconds
-            </span>
-          </span>
+          <span className="font-display text-[1.375rem] leading-none tracking-[-0.01em] sm:text-[1.6rem]">{APP_NAME.replace(/\s+/g, '')}</span>
         </Link>
 
         <Suspense fallback={<nav className="hidden flex-1 md:block" />}>
