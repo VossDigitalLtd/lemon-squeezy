@@ -17,6 +17,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/lib/toast/context';
 import { UNITS_BY_TYPE, type UnitKey } from '@/lib/units';
 import { getImageUrl } from '@/lib/recipes';
@@ -49,6 +66,11 @@ function generateUid(title: string): string {
 }
 
 const EMPTY_INGREDIENT: Ingredient = { quantity: null, unit: null, name: '' };
+
+// Stable ids for ingredient and method rows while editing, so drag-and-drop
+// can track them (kept beside the form data, never saved)
+let rowKeySeq = 0;
+const newRowKey = () => `row-${++rowKeySeq}`;
 
 function emptyFormData(): RecipeFormData {
   return {
@@ -129,6 +151,18 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
     recipe ? recipeToFormData(recipe) : emptyFormData()
   );
   const [uploading, setUploading] = useState(false);
+  // One key per ingredient row, group by group, in step with form.ingredient_groups
+  const [ingredientKeys, setIngredientKeys] = useState<string[][]>(() =>
+    form.ingredient_groups.map((g) => g.items.map(newRowKey))
+  );
+  // Likewise for method steps
+  const [methodKeys, setMethodKeys] = useState<string[][]>(() =>
+    form.method_groups.map((g) => g.items.map(newRowKey))
+  );
+  const dragSensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
   const [library, setLibrary] = useState<LibraryIngredient[]>([]);
 
   // Ingredient library for the name pickers
@@ -218,10 +252,12 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
       ...form.ingredient_groups,
       { group_title: '', items: [{ ...EMPTY_INGREDIENT }] },
     ]);
+    setIngredientKeys((keys) => [...keys, [newRowKey()]]);
   }
 
   function removeIngredientGroup(gi: number) {
     updateIngredientGroups(form.ingredient_groups.filter((_, i) => i !== gi));
+    setIngredientKeys((keys) => keys.filter((_, i) => i !== gi));
   }
 
   function updateIngredientGroupTitle(gi: number, title: string) {
@@ -234,12 +270,26 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
     const groups = [...form.ingredient_groups];
     groups[gi] = { ...groups[gi], items: [...groups[gi].items, { ...EMPTY_INGREDIENT }] };
     updateIngredientGroups(groups);
+    setIngredientKeys((keys) => keys.map((k, i) => (i === gi ? [...k, newRowKey()] : k)));
   }
 
   function removeIngredient(gi: number, ii: number) {
     const groups = [...form.ingredient_groups];
     groups[gi] = { ...groups[gi], items: groups[gi].items.filter((_, i) => i !== ii) };
     updateIngredientGroups(groups);
+    setIngredientKeys((keys) => keys.map((k, i) => (i === gi ? k.filter((_, j) => j !== ii) : k)));
+  }
+
+  /** Drag-and-drop within a group */
+  function moveIngredient(gi: number, { active, over }: DragEndEvent) {
+    const keys = ingredientKeys[gi];
+    const from = keys.indexOf(String(active.id));
+    const to = over ? keys.indexOf(String(over.id)) : -1;
+    if (from < 0 || to < 0 || from === to) return;
+    const groups = [...form.ingredient_groups];
+    groups[gi] = { ...groups[gi], items: arrayMove(groups[gi].items, from, to) };
+    updateIngredientGroups(groups);
+    setIngredientKeys((all) => all.map((k, i) => (i === gi ? arrayMove(k, from, to) : k)));
   }
 
   function setIngredientName(gi: number, ii: number, v: { name: string; ingredient_id?: string }) {
@@ -280,10 +330,12 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
 
   function addMethodGroup() {
     updateMethodGroups([...form.method_groups, { group_title: '', items: [''] }]);
+    setMethodKeys((keys) => [...keys, [newRowKey()]]);
   }
 
   function removeMethodGroup(gi: number) {
     updateMethodGroups(form.method_groups.filter((_, i) => i !== gi));
+    setMethodKeys((keys) => keys.filter((_, i) => i !== gi));
   }
 
   function updateMethodGroupTitle(gi: number, title: string) {
@@ -296,12 +348,26 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
     const groups = [...form.method_groups];
     groups[gi] = { ...groups[gi], items: [...groups[gi].items, ''] };
     updateMethodGroups(groups);
+    setMethodKeys((keys) => keys.map((k, i) => (i === gi ? [...k, newRowKey()] : k)));
   }
 
   function removeMethodStep(gi: number, si: number) {
     const groups = [...form.method_groups];
     groups[gi] = { ...groups[gi], items: groups[gi].items.filter((_, i) => i !== si) };
     updateMethodGroups(groups);
+    setMethodKeys((keys) => keys.map((k, i) => (i === gi ? k.filter((_, j) => j !== si) : k)));
+  }
+
+  /** Drag-and-drop within a group */
+  function moveMethodStep(gi: number, { active, over }: DragEndEvent) {
+    const keys = methodKeys[gi];
+    const from = keys.indexOf(String(active.id));
+    const to = over ? keys.indexOf(String(over.id)) : -1;
+    if (from < 0 || to < 0 || from === to) return;
+    const groups = [...form.method_groups];
+    groups[gi] = { ...groups[gi], items: arrayMove(groups[gi].items, from, to) };
+    updateMethodGroups(groups);
+    setMethodKeys((all) => all.map((k, i) => (i === gi ? arrayMove(k, from, to) : k)));
   }
 
   function updateMethodStep(gi: number, si: number, value: string) {
@@ -566,80 +632,88 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
               )}
             </div>
 
-            {group.items.map((item, ii) => (
-              <div key={ii} className="flex items-start gap-2 mb-2">
-                <GripVertical size={14} className="text-muted-foreground flex-shrink-0" />
-                <Input
-                  type="number"
-                  step="any"
-                  min={0}
-                  value={item.quantity ?? ''}
-                  onChange={(e) =>
-                    updateIngredient(gi, ii, 'quantity', e.target.value === '' ? null : parseFloat(e.target.value))
-                  }
-                  placeholder="Qty"
-                  className="w-20 h-8 text-sm"
-                />
-                <Select
-                  value={item.unit || '_none'}
-                  onValueChange={(v) => updateIngredient(gi, ii, 'unit', v === '_none' ? null : v)}
-                >
-                  <SelectTrigger className="w-28 h-8 text-sm">
-                    <SelectValue placeholder="Unit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">No unit</SelectItem>
-                    <SelectGroup>
-                      <SelectLabel>Volume</SelectLabel>
-                      {UNITS_BY_TYPE.volume.map((u) => (
-                        <SelectItem key={u} value={u}>{u}</SelectItem>
-                      ))}
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>Weight</SelectLabel>
-                      {UNITS_BY_TYPE.weight.map((u) => (
-                        <SelectItem key={u} value={u}>{u}</SelectItem>
-                      ))}
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>Count</SelectLabel>
-                      {UNITS_BY_TYPE.count.map((u) => (
-                        <SelectItem key={u} value={u}>{u}</SelectItem>
-                      ))}
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>Length</SelectLabel>
-                      {UNITS_BY_TYPE.length.map((u) => (
-                        <SelectItem key={u} value={u}>{u}</SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <IngredientPicker
-                  name={item.name}
-                  ingredientId={item.ingredient_id}
-                  library={library}
-                  onChange={(v) => setIngredientName(gi, ii, v)}
-                  onCreate={createLibraryIngredient}
-                />
-                <Input
-                  value={item.note ?? ''}
-                  onChange={(e) => updateIngredient(gi, ii, 'note', e.target.value)}
-                  placeholder="Prep, e.g. diced"
-                  className="h-8 w-36 text-sm"
-                  aria-label="Preparation"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeIngredient(gi, ii)}
-                  disabled={group.items.length <= 1}
-                >
-                  <X size={14} />
-                </Button>
-              </div>
-            ))}
+            <DndContext
+              id={`ingredients-${gi}`}
+              sensors={dragSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={(e) => moveIngredient(gi, e)}
+            >
+              <SortableContext items={ingredientKeys[gi] ?? []} strategy={verticalListSortingStrategy}>
+                {group.items.map((item, ii) => (
+                  <SortableRow key={ingredientKeys[gi]?.[ii] ?? ii} id={ingredientKeys[gi]?.[ii] ?? String(ii)}>
+                    <Input
+                      type="number"
+                      step="any"
+                      min={0}
+                      value={item.quantity ?? ''}
+                      onChange={(e) =>
+                        updateIngredient(gi, ii, 'quantity', e.target.value === '' ? null : parseFloat(e.target.value))
+                      }
+                      placeholder="Qty"
+                      className="w-20 h-8 text-sm"
+                    />
+                    <Select
+                      value={item.unit || '_none'}
+                      onValueChange={(v) => updateIngredient(gi, ii, 'unit', v === '_none' ? null : v)}
+                    >
+                      <SelectTrigger className="w-28 h-8 text-sm">
+                        <SelectValue placeholder="Unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">No unit</SelectItem>
+                        <SelectGroup>
+                          <SelectLabel>Volume</SelectLabel>
+                          {UNITS_BY_TYPE.volume.map((u) => (
+                            <SelectItem key={u} value={u}>{u}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Weight</SelectLabel>
+                          {UNITS_BY_TYPE.weight.map((u) => (
+                            <SelectItem key={u} value={u}>{u}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Count</SelectLabel>
+                          {UNITS_BY_TYPE.count.map((u) => (
+                            <SelectItem key={u} value={u}>{u}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Length</SelectLabel>
+                          {UNITS_BY_TYPE.length.map((u) => (
+                            <SelectItem key={u} value={u}>{u}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <IngredientPicker
+                      name={item.name}
+                      ingredientId={item.ingredient_id}
+                      library={library}
+                      onChange={(v) => setIngredientName(gi, ii, v)}
+                      onCreate={createLibraryIngredient}
+                    />
+                    <Input
+                      value={item.note ?? ''}
+                      onChange={(e) => updateIngredient(gi, ii, 'note', e.target.value)}
+                      placeholder="Prep, e.g. diced"
+                      className="h-8 w-36 text-sm"
+                      aria-label="Preparation"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeIngredient(gi, ii)}
+                      disabled={group.items.length <= 1}
+                    >
+                      <X size={14} />
+                    </Button>
+                  </SortableRow>
+                ))}
+              </SortableContext>
+            </DndContext>
 
             <Button type="button" variant="outline" size="sm" onClick={() => addIngredient(gi)} className="mt-1">
               <Plus size={12} className="mr-1" />
@@ -672,30 +746,39 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
               )}
             </div>
 
-            {group.items.map((step, si) => (
-              <div key={si} className="flex items-start gap-2 mb-2">
-                <span className="text-xs text-muted-foreground mt-2.5 w-6 text-right flex-shrink-0">
-                  {si + 1}.
-                </span>
-                <Textarea
-                  value={step}
-                  onChange={(e) => updateMethodStep(gi, si, e.target.value)}
-                  placeholder="Describe this step..."
-                  rows={2}
-                  className="flex-1 text-sm"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeMethodStep(gi, si)}
-                  disabled={group.items.length <= 1}
-                  className="mt-1"
-                >
-                  <X size={14} />
-                </Button>
-              </div>
-            ))}
+            <DndContext
+              id={`method-${gi}`}
+              sensors={dragSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={(e) => moveMethodStep(gi, e)}
+            >
+              <SortableContext items={methodKeys[gi] ?? []} strategy={verticalListSortingStrategy}>
+                {group.items.map((step, si) => (
+                  <SortableRow key={methodKeys[gi]?.[si] ?? si} id={methodKeys[gi]?.[si] ?? String(si)}>
+                    <span className="text-xs text-muted-foreground mt-2.5 w-6 text-right flex-shrink-0">
+                      {si + 1}.
+                    </span>
+                    <Textarea
+                      value={step}
+                      onChange={(e) => updateMethodStep(gi, si, e.target.value)}
+                      placeholder="Describe this step..."
+                      rows={2}
+                      className="flex-1 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeMethodStep(gi, si)}
+                      disabled={group.items.length <= 1}
+                      className="mt-1"
+                    >
+                      <X size={14} />
+                    </Button>
+                  </SortableRow>
+                ))}
+              </SortableContext>
+            </DndContext>
 
             <Button type="button" variant="outline" size="sm" onClick={() => addMethodStep(gi)} className="mt-1">
               <Plus size={12} className="mr-1" />
@@ -829,6 +912,31 @@ function Field({ label, required, children }: { label: string; required?: boolea
         {label}
         {required && <span className="text-destructive ml-0.5">*</span>}
       </Label>
+      {children}
+    </div>
+  );
+}
+
+/** An ingredient or method row that can be dragged by its grip to reorder it */
+function SortableRow({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+      className={`flex items-start gap-2 mb-2 ${isDragging ? 'relative z-10 opacity-80' : ''}`}
+    >
+      <button
+        type="button"
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+        className="flex h-8 flex-shrink-0 cursor-grab touch-none items-center text-muted-foreground hover:text-foreground active:cursor-grabbing"
+      >
+        <GripVertical size={14} />
+      </button>
       {children}
     </div>
   );
