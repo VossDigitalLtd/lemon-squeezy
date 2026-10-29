@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, FormEvent, ChangeEvent } from 'react'
 import Image from 'next/image';
 import { Search, UserPlus, Pencil, Trash2, ChevronLeft, ChevronRight, X, RefreshCw, Download } from 'lucide-react';
 import { downloadCsv } from '@/lib/csv';
+import { cn } from '@/utils/cn';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -846,7 +847,18 @@ export default function UsersPage() {
             </TableHeader>
             <TableBody>
               {users.map((user) => (
-                <TableRow key={user.id} className={selectedIds.has(user.id) ? 'bg-brand-muted/40' : user.id === currentUser?.id ? 'bg-brand-muted/20' : ''}>
+                <TableRow
+                  key={user.id}
+                  // Clicking the row edits the user, like the pencil (keyboard users have the pencil)
+                  onClick={(e) => {
+                    if (!canManage(user) || (e.target as HTMLElement).closest('button, a, input, label')) return;
+                    setEditingUser(user);
+                  }}
+                  className={cn(
+                    selectedIds.has(user.id) ? 'bg-brand-muted/40' : user.id === currentUser?.id ? 'bg-brand-muted/20' : '',
+                    canManage(user) && 'cursor-pointer'
+                  )}
+                >
                   <TableCell className="pl-4">
                     {canManage(user) ? (
                       <input

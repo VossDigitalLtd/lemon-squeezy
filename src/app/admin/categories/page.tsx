@@ -271,7 +271,14 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
                 </>
               ) : (
                 <>
-                  <span className="text-sm text-foreground flex-1 min-w-0 truncate">{cat.title}</span>
+                  <button
+                    type="button"
+                    onClick={() => startEditing(cat)}
+                    className="flex-1 min-w-0 truncate text-left text-sm text-foreground hover:underline"
+                    title="Rename"
+                  >
+                    {cat.title}
+                  </button>
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Switch
                       size="sm"

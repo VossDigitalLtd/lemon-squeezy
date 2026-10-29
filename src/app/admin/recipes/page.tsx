@@ -123,7 +123,7 @@ export default function AdminRecipesPage() {
             return (
               <div
                 key={recipe.id}
-                className="flex items-center gap-4 px-4 py-3 hover:bg-muted/50 transition-colors"
+                className="relative flex items-center gap-4 px-4 py-3 hover:bg-muted/50 transition-colors"
               >
                 {/* Thumbnail */}
                 <div className="h-12 w-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
@@ -145,19 +145,25 @@ export default function AdminRecipesPage() {
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{recipe.title}</p>
+                  {/* The title's link covers the whole row, so clicking anywhere opens the editor */}
+                  <Link
+                    href={`/admin/recipe/${recipe.id}/edit`}
+                    className="block text-sm font-medium text-foreground truncate after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:rounded-[inherit] focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset"
+                  >
+                    {recipe.title}
+                  </Link>
                   <p className="text-xs text-muted-foreground truncate">{recipe.short_description}</p>
                 </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-1 flex-shrink-0">
+                {/* Actions (above the row link) */}
+                <div className="relative z-10 flex items-center gap-1 flex-shrink-0">
                   <Button variant="ghost" size="sm" asChild title="View on site">
                     <Link href={`/${recipe.uid}`} target="_blank">
                       <ExternalLink size={14} />
                     </Link>
                   </Button>
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/admin/recipe/${recipe.id}/edit`}>
+                  <Button variant="ghost" size="sm" asChild title="Edit">
+                    <Link href={`/admin/recipe/${recipe.id}/edit`} tabIndex={-1}>
                       <Pencil size={14} />
                     </Link>
                   </Button>
