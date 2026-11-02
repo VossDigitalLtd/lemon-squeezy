@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Minus, Plus, Check, Printer } from 'lucide-react';
 import { displayIngredient, formatAmount, ingredientLabel } from '@/lib/units';
 import { methodTerms } from '@/lib/methodLinks';
+import { scaleStepAmounts } from '@/lib/methodAmounts';
 import { MethodStepText } from '@/components/recipe/MethodStepText';
 import { Switch } from '@/components/ui/switch';
 import { AddToListButton } from '@/components/recipe/AddToListButton';
@@ -41,13 +42,18 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
   function amountFor(ids: string[]): string[] {
     const amounts = ids.map((id) => {
       const lines = recipe.ingredient_groups.flatMap((g) => g.items).filter((i) => i.ingredient_id === id);
-      const amount = lines
-        .map((i) => formatAmount(displayIngredient(i, baseServings, servings, system)))
-        .filter(Boolean)
-        .join(' + ');
-      return { amount, name: lines[0]?.name ?? '' };
+      const shown = lines.map((i) => displayIngredient(i, baseServings, servings, system)).filter((i) => formatAmount(i));
+      return {
+        amount: shown.map(formatAmount).join(' + '),
+        name: lines[0]?.name ?? '',
+        // A bare count ("2") needs its name beside "1 l of chicken stock": "2 chicken stock cube"
+        unitless: shown.length > 0 && shown.every((i) => !i.unit),
+      };
     });
-    if (ids.length === 1) return amounts[0].amount ? [amounts[0].amount] : [];
+    if (ids.length === 1) {
+      const [a] = amounts;
+      return a.amount ? [a.unitless ? `${a.amount} ${a.name}` : a.amount] : [];
+    }
     return amounts.filter((a) => a.amount).map((a) => `${a.amount} ${a.name}`);
   }
 
@@ -238,7 +244,14 @@ export default function RecipeContentClient({ recipe, children }: RecipeContentC
                       <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                         Step {n}
                       </span>
-                      <MethodStepText step={step} terms={terms} links={recipe.method_links} amountFor={amountFor} showAll={showAmounts} />
+                      <MethodStepText
+                        step={step}
+                        terms={terms}
+                        links={recipe.method_links}
+                        amountFor={amountFor}
+                        showAll={showAmounts}
+                        scaleText={(text) => scaleStepAmounts(text, baseServings, servings, system)}
+                      />
                     </p>
                   </li>
                 );

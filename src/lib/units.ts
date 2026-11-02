@@ -206,7 +206,7 @@ export function formatAmount(ingredient: Ingredient): string {
 }
 
 /** Format a number nicely: 0.5 → "½", 1.5 → "1½", 0.25 → "¼" */
-function formatQuantity(n: number): string {
+export function formatQuantity(n: number): string {
   const fractions: Record<number, string> = {
     0.25: '¼', 0.33: '⅓', 0.5: '½', 0.67: '⅔', 0.75: '¾',
   };
@@ -224,7 +224,7 @@ function formatQuantity(n: number): string {
 // ─── Parsing (for migration) ─────────────────────────────────────────────────
 
 /** Common aliases for unit names seen in ingredient strings */
-const UNIT_ALIASES: Record<string, UnitKey> = {
+export const UNIT_ALIASES: Record<string, UnitKey> = {
   // Volume
   ml: 'ml', millilitre: 'ml', milliliter: 'ml', millilitres: 'ml', milliliters: 'ml',
   l: 'l', litre: 'l', liter: 'l', litres: 'l', liters: 'l',

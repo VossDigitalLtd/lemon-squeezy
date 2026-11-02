@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MethodStepText } from '@/components/recipe/MethodStepText';
 import { mentions, methodCheck, methodTerms, type MethodLinks } from '@/lib/methodLinks';
+import { findStepAmounts } from '@/lib/methodAmounts';
 import { cn } from '@/utils/cn';
 import type { IngredientGroup, MethodGroup } from '@/types/recipe';
 
@@ -39,6 +40,13 @@ export function MethodCheckPanel({ ingredients, method, links, onChange }: Metho
   const steps = useMemo(() => method.flatMap((g) => g.items).filter((s) => s.trim()), [method]);
   const check = useMemo(() => methodCheck(ingredients, [{ group_title: '', items: steps }], links), [ingredients, steps, links]);
   const terms = useMemo(() => methodTerms(ingredients), [ingredients]);
+  // Amounts written in the steps: these scale with servings on the recipe page
+  const stepAmounts = useMemo(
+    () => steps.flatMap((s, i) => findStepAmounts(s).map((a) => ({ ...a, step: i + 1 }))),
+    [steps]
+  );
+  const scaling = stepAmounts.filter((a) => !a.perItem);
+  const perItem = stepAmounts.filter((a) => a.perItem);
 
   const inMethod = (p: string) => !p.trim() || steps.some((s) => mentions(s, p));
 
@@ -94,6 +102,35 @@ export function MethodCheckPanel({ ingredients, method, links, onChange }: Metho
             </li>
           ))}
         </ol>
+      )}
+
+      {stepAmounts.length > 0 && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {scaling.length > 0 && (
+            <>
+              Amounts in the steps that change with servings:{' '}
+              {scaling.map((a, i) => (
+                <span key={i}>
+                  {i > 0 && ', '}
+                  <b className="font-semibold text-foreground">{a.text}</b> (step {a.step})
+                </span>
+              ))}
+              .{' '}
+            </>
+          )}
+          {perItem.length > 0 && (
+            <>
+              Left as written, as a size per item:{' '}
+              {perItem.map((a, i) => (
+                <span key={i}>
+                  {i > 0 && ', '}
+                  <b className="font-semibold text-foreground">{a.text}</b> (step {a.step})
+                </span>
+              ))}
+              .
+            </>
+          )}
+        </p>
       )}
 
       {allGood ? (

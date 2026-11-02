@@ -16,13 +16,19 @@ interface MethodStepTextProps {
   showAll: boolean;
   /** Tap a time to start a timer (the recipe page); off for previews */
   timers?: boolean;
+  /**
+   * Rewrites amounts for the chosen servings and units. Runs on the text
+   * shown, after the step is matched to ingredients as written, so a
+   * correction like "Add 500ml of chicken stock" still matches at 1 l.
+   */
+  scaleText?: (text: string) => string;
 }
 
 /**
  * One method step, with the ingredients it mentions. Tapping an ingredient
  * shows how much of it the recipe uses, at the chosen servings.
  */
-export function MethodStepText({ step, terms, links, amountFor, showAll, timers = true }: MethodStepTextProps) {
+export function MethodStepText({ step, terms, links, amountFor, showAll, timers = true, scaleText = (t) => t }: MethodStepTextProps) {
   const [open, setOpen] = useState<Set<number>>(() => new Set());
   let n = 0;
   // With every amount showing, each ingredient's amount appears once per step
@@ -32,7 +38,7 @@ export function MethodStepText({ step, terms, links, amountFor, showAll, timers 
     linkStep(text, terms, links).map((part) => {
       const i = n++;
       const amounts = part.ingredientIds ? amountFor(part.ingredientIds) : [];
-      if (!amounts.length) return <span key={i}>{part.text}</span>;
+      if (!amounts.length) return <span key={i}>{scaleText(part.text)}</span>;
       const several = amounts.length > 1;
       const key = part.ingredientIds!.join('+');
       const shown = open.has(i) || (showAll && !shownOnce.has(key));
@@ -55,7 +61,7 @@ export function MethodStepText({ step, terms, links, amountFor, showAll, timers 
             title={shown ? undefined : amounts.join(' · ')}
             className="whitespace-normal rounded-sm underline decoration-primary decoration-dotted decoration-2 underline-offset-[5px] hover:decoration-solid focus-visible:outline-2 focus-visible:outline-ring"
           >
-            {part.text}
+            {scaleText(part.text)}
           </button>
           {shown &&
             (several ? (

@@ -5,6 +5,7 @@ import { RecipeService } from '@/lib/supabase/services';
 import { LogoMark, LogoTimer, LaceBand } from '@/components/brand';
 import { getImageUrl, textToHtml, imageFocus } from '@/lib/recipes';
 import { displayIngredient, formatAmount, ingredientLabel } from '@/lib/units';
+import { scaleStepAmounts } from '@/lib/methodAmounts';
 import { formatMinutesLong, formatMinutesShort } from '@/lib/time';
 import { restNoun, describeRests, timeSequence } from '@/lib/rest';
 import { PrintToolbar } from './PrintToolbar';
@@ -140,7 +141,7 @@ export default async function PrintRecipePage({ params, searchParams }: PageProp
                     return (
                       <li key={si} className="grid break-inside-avoid grid-cols-[22px_1fr] gap-3 text-[12px] leading-relaxed">
                         <span className="grid size-[22px] place-items-center rounded-full bg-[#FDE74C] text-[11px] font-semibold">{stepNumber}</span>
-                        <p>{step}</p>
+                        <p>{scaleStepAmounts(step, base, servings, system)}</p>
                       </li>
                     );
                   })}
