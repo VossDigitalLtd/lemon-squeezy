@@ -20,7 +20,9 @@ describe('scaleStepAmounts', () => {
   });
 
   it('converts to imperial', () => {
-    expect(at(soup, 4, 'imperial')).toContain('Add 17 fl oz of chicken stock');
+    expect(at(soup, 4, 'imperial')).toContain('Add 18 fl oz of chicken stock');
+    expect(at(soup, 8, 'imperial')).toContain('Add 1¾ pints of chicken stock'); // UK pints: 20 fl oz
+    expect(at('Add 1.2l stock', 4, 'imperial')).toBe('Add 2 pints stock');
     expect(at('Cream 140g softened butter and 140g caster sugar', 4, 'imperial')).toBe('Cream 5 oz softened butter and 5 oz caster sugar');
   });
 

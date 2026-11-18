@@ -7,12 +7,12 @@ export const UNITS = {
   // Volume — Metric
   ml:   { label: 'ml',    plural: 'ml',     system: 'metric',    type: 'volume', base: 1 },
   l:    { label: 'l',     plural: 'l',      system: 'metric',    type: 'volume', base: 1000 },
-  // Volume — Imperial
+  // Volume — Imperial (UK pints and fluid ounces: 20 fl oz to the pint; cups are US cups)
   tsp:  { label: 'tsp',   plural: 'tsp',    system: 'imperial',  type: 'volume', base: 4.929 },
   tbsp: { label: 'tbsp',  plural: 'tbsp',   system: 'imperial',  type: 'volume', base: 14.787 },
-  floz: { label: 'fl oz', plural: 'fl oz',  system: 'imperial',  type: 'volume', base: 29.574 },
+  floz: { label: 'fl oz', plural: 'fl oz',  system: 'imperial',  type: 'volume', base: 28.413 },
   cup:  { label: 'cup',   plural: 'cups',   system: 'imperial',  type: 'volume', base: 236.588 },
-  pint: { label: 'pint',  plural: 'pints',  system: 'imperial',  type: 'volume', base: 473.176 },
+  pint: { label: 'pint',  plural: 'pints',  system: 'imperial',  type: 'volume', base: 568.261 },
   // Weight — Metric
   g:    { label: 'g',     plural: 'g',      system: 'metric',    type: 'weight', base: 1 },
   kg:   { label: 'kg',    plural: 'kg',     system: 'metric',    type: 'weight', base: 1000 },
@@ -32,6 +32,7 @@ export const UNITS = {
   tin:     { label: 'tin',     plural: 'tins',     system: 'universal', type: 'count',  base: 1 },
   head:    { label: 'head',    plural: 'heads',    system: 'universal', type: 'count',  base: 1 },
   sprig:   { label: 'sprig',   plural: 'sprigs',   system: 'universal', type: 'count',  base: 1 },
+  leaf:    { label: 'leaf',    plural: 'leaves',   system: 'universal', type: 'count',  base: 1 },
   stick:   { label: 'stick',   plural: 'sticks',   system: 'universal', type: 'count',  base: 1 },
   // Length
   cm:   { label: 'cm',   plural: 'cm',     system: 'metric',    type: 'length', base: 1 },
@@ -139,6 +140,7 @@ export function displayIngredient(
     g: ['kg', 1000],
     ml: ['l', 1000],
     oz: ['lb', 16],
+    floz: ['pint', 20],
   };
   const up = stepUp[item.unit!];
   if (up && item.quantity! >= up[1]) {
@@ -160,6 +162,9 @@ export function tidyQuantity(quantity: number, unit: UnitKey): number {
       return Math.round(roundTo(0.05) * 100) / 100;
     case 'cm':
       return roundTo(0.5);
+    case 'floz':
+      // A jug measures whole and half fluid ounces
+      return quantity >= 10 ? roundTo(1) : roundTo(0.5);
     default:
       // Imperial, spoons and counts: halves, thirds and quarters only
       return nearestFraction(quantity);
@@ -251,6 +256,7 @@ export const UNIT_ALIASES: Record<string, UnitKey> = {
   tin: 'tin', tins: 'tin',
   head: 'head', heads: 'head',
   sprig: 'sprig', sprigs: 'sprig',
+  leaf: 'leaf', leaves: 'leaf',
   stick: 'stick', sticks: 'stick',
   // Length
   cm: 'cm', centimetre: 'cm', centimeter: 'cm',

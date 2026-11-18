@@ -95,7 +95,7 @@ describe('displayIngredient', () => {
   it('converts to tidy imperial amounts', () => {
     expect(displayIngredient(potatoes, 4, 4, 'imperial')).toMatchObject({ quantity: 2.25, unit: 'lb' });
     expect(displayIngredient({ quantity: 150, unit: 'ml', name: 'olive oil' }, 4, 4, 'imperial'))
-      .toMatchObject({ quantity: 5, unit: 'floz' });
+      .toMatchObject({ quantity: 5.5, unit: 'floz' });
   });
 
   it('keeps spoons as spoons and scales them to quarters', () => {

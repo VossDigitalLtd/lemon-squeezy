@@ -115,7 +115,7 @@ export function scaleStepAmounts(
     const plural = highQty !== null || top.quantity > 1;
     const long = LONG_NAMES[shownUnit] && Object.values(LONG_NAMES).some((names) => names!.includes(unitText.toLowerCase()));
     const word = long ? LONG_NAMES[shownUnit]![plural ? 1 : 0] : plural ? UNITS[shownUnit].plural : UNITS[shownUnit].label;
-    // Keep "500ml" tight; a changed unit gets a space ("1 l", "17 fl oz")
+    // Keep "500ml" tight; a changed unit gets a space ("1 l", "18 fl oz")
     const gap = shownUnit === unit ? space : ' ';
     return `${amount}${gap}${word}`;
   });
