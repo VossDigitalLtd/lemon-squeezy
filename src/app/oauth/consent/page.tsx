@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Connect an app' };
 
 /**
  * Supabase's OAuth server sends people here (the "Authorization Path" set in
- * the Supabase dashboard) to allow an app such as ChatGPT to edit recipes.
+ * the Supabase dashboard) to allow an app such as ChatGPT or Claude to edit recipes.
  */
 export default async function ConsentPage() {
   const photos = await getAuthPhotos();

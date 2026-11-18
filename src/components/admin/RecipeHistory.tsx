@@ -14,7 +14,7 @@ import {
 import { useToast } from '@/lib/toast/context';
 import type { RecipeRevision } from '@/lib/supabase/services/RevisionService';
 
-const SOURCE_LABEL = { admin: 'Admin', chatgpt: 'ChatGPT' } as const;
+const SOURCE_LABEL = { admin: 'Admin', chatgpt: 'ChatGPT', claude: 'Claude' } as const;
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -65,7 +65,7 @@ export function RecipeHistory({ recipeId }: { recipeId: string }) {
         <div>
           <h2 className="text-lg font-semibold text-foreground">History</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Every save, from here or from ChatGPT. Restore puts the recipe back as it was before a change.
+            Every save, from here, ChatGPT or Claude. Restore puts the recipe back as it was before a change.
           </p>
         </div>
         <Button type="button" variant="outline" size="sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>

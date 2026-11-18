@@ -3,7 +3,7 @@ import { registerRecipeTools, MCP_INSTRUCTIONS } from '@/lib/mcp/recipeTools';
 import { verifyMcpToken } from '@/lib/mcp/auth';
 
 /**
- * The ChatGPT connector: an MCP server (Streamable HTTP) for searching,
+ * The recipes connector for ChatGPT and Claude: an MCP server (Streamable HTTP) for searching,
  * reading, editing and creating recipes. Every request needs a token from
  * the Supabase OAuth server for an editor or admin (see lib/mcp/auth.ts).
  */

@@ -32,7 +32,7 @@ const recipe: RecipeFormData = {
   accompanying_recipe_ids: ['bread'],
 };
 
-describe('ChatGPT changes', () => {
+describe('changes from the connector', () => {
   it('keeps library links for unchanged ingredient names, and adds new lines unlinked', () => {
     const groups = toIngredientGroups(
       [{ group_title: ' ', items: [{ quantity: 1, unit: null, name: 'Chicken stock cube' }, { quantity: 8, unit: 'leaf', name: 'sage', note: ' torn ' }]}],

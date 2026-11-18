@@ -2,7 +2,7 @@ import { protectedResourceHandler, metadataCorsOptionsRequestHandler } from 'mcp
 import { AUTH_SERVER_ISSUER } from '@/lib/mcp/auth';
 
 /**
- * OAuth protected resource metadata for /api/mcp (RFC 9728): tells ChatGPT
+ * OAuth protected resource metadata for /api/mcp (RFC 9728): tells ChatGPT and Claude
  * the connector's address and that it signs in with Supabase's OAuth server.
  */
 const handler = protectedResourceHandler({ authServerUrls: [AUTH_SERVER_ISSUER] });

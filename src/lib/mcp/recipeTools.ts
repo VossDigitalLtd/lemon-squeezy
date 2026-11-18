@@ -324,7 +324,7 @@ export function registerRecipeTools(server: McpServer) {
       if ('error' in next) return fail(next.error);
 
       const result = await RecipeService.updateRecipe(createAdminClient(), recipe.id, next, {
-        source: 'chatgpt',
+        source: user.source,
         userId: user.userId,
         summary,
       });

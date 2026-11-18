@@ -10,7 +10,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { ServiceResponse } from '@/types';
 import type { RecipeFormData } from '@/types/recipe';
 
-export type RevisionSource = 'admin' | 'chatgpt';
+/** Where a change came from: the admin, or an AI assistant through the connector (/api/mcp) */
+export type RevisionSource = 'admin' | 'chatgpt' | 'claude';
 
 /** Who made a change and how, recorded with the copy taken before it */
 export interface RevisionMeta {
