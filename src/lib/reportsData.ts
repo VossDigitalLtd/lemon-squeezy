@@ -13,7 +13,7 @@ export async function loadReport(): Promise<Report> {
   const admin = createAdminClient();
 
   const [recipes, favourites, profiles, pairings] = await Promise.all([
-    admin.from('recipes').select(`${RECIPE_SUMMARY_SELECT}, published_at`),
+    admin.from('recipes').select(`${RECIPE_SUMMARY_SELECT}, published_at`).is('deleted_at', null),
     admin.from('favourites').select('user_id, recipe_id, created_at'),
     admin.from('profiles').select('id, role, created_at, last_login_at'),
     admin.from('recipe_accompanying').select('recipe_id, accompanying_id'),
@@ -32,7 +32,7 @@ export async function loadReport(): Promise<Report> {
   const rows = (recipes.data || []) as unknown as (RawRecipeRow & { published_at: string })[];
 
   // How well each method mentions its ingredients (missing until migration 030 is run)
-  const methods = await admin.from('recipes').select('id, ingredient_groups, method_groups, method_links');
+  const methods = await admin.from('recipes').select('id, ingredient_groups, method_groups, method_links').is('deleted_at', null);
   const methodIssues = new Map<string, number>();
   if (!methods.error) {
     for (const r of (methods.data || []) as { id: string; ingredient_groups: IngredientGroup[]; method_groups: MethodGroup[]; method_links: unknown }[]) {

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { RecipeService } from '@/lib/supabase/services';
+import { RecipeService, TrashService } from '@/lib/supabase/services';
 import { ok, apiError } from '@/lib/api/response';
 import { requireStaff } from '@/lib/auth/requireStaff';
 import type { RecipeFormData } from '@/types/recipe';
@@ -66,7 +66,7 @@ export async function PUT(
   }
 }
 
-/** DELETE /api/recipe/[id] — delete a recipe */
+/** DELETE /api/recipe/[id] — move a recipe to the trash */
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -83,6 +83,8 @@ export async function DELETE(
 
     const adminClient = createAdminClient();
     const result = await RecipeService.deleteRecipe(adminClient, id);
+    // Clear out anything that's been in the trash past its time
+    await TrashService.purgeExpired(adminClient);
 
     if (!result.success) {
       return apiError(result.error || 'Failed to delete recipe', 400);

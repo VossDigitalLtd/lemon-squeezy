@@ -9,6 +9,7 @@ import {
   BarChart3,
   Star,
   Carrot,
+  Trash2,
 } from 'lucide-react';
 import { features } from './app';
 
@@ -27,6 +28,7 @@ export const MAIN_NAV_LINKS: NavLink[] = [
   { href: '/admin/ingredients', icon: <Carrot size={18} />, label: 'Ingredients' },
   { href: '/admin/featured', icon: <Star size={18} />, label: 'Recipe of the week' },
   { href: '/admin/reports', icon: <BarChart3 size={18} />, label: 'Reports' },
+  { href: '/admin/trash', icon: <Trash2 size={18} />, label: 'Trash' },
   { href: '/admin/users', icon: <Users size={18} />, label: 'Users', minRole: 'admin' },
 ];
 

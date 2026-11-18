@@ -18,23 +18,28 @@ import { RECIPE_SUMMARY_SELECT, toRecipeSummary, type RawRecipeRow } from './Rec
 
 class FavouriteServiceClass {
   /**
-   * Get all favourite recipe IDs for a user
+   * Get all favourite recipe IDs for a user, leaving out recipes in the trash
    */
   async getUserFavouriteIds(
     supabase: SupabaseClient,
     userId: string
   ): Promise<ServiceResponse<string[]>> {
     try {
-      const { data, error } = await supabase
-        .from('favourites')
-        .select('recipe_id')
-        .eq('user_id', userId);
+      // The recipe ids come back alongside (the read policy hides trashed
+      // recipes), so this costs no extra wait; there's no favourites → recipes
+      // relationship in the database to join on.
+      const [{ data, error }, { data: live, error: liveError }] = await Promise.all([
+        supabase.from('favourites').select('recipe_id').eq('user_id', userId),
+        supabase.from('recipes').select('id').is('deleted_at', null),
+      ]);
 
       if (error) throw error;
+      if (liveError) throw liveError;
 
+      const liveIds = new Set((live || []).map((r) => r.id as string));
       return {
         success: true,
-        data: (data || []).map((row) => row.recipe_id),
+        data: (data || []).map((row) => row.recipe_id as string).filter((id) => liveIds.has(id)),
       };
     } catch (error) {
       console.error('[FavouriteService] getUserFavouriteIds error:', error);

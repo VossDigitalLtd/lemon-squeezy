@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { CategoryService } from '@/lib/supabase/services';
+import { CategoryService, TrashService } from '@/lib/supabase/services';
 import type { CategoryUpdate } from '@/lib/supabase/services/CategoryService';
 import { ok, apiError } from '@/lib/api/response';
 import { requireStaff } from '@/lib/auth/requireStaff';
@@ -75,7 +75,7 @@ export async function PUT(
   }
 }
 
-/** DELETE /api/category/[id] — delete a category */
+/** DELETE /api/category/[id] — move a category to the trash */
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -92,6 +92,8 @@ export async function DELETE(
 
     const adminClient = createAdminClient();
     const result = await CategoryService.deleteCategory(adminClient, id);
+    // Clear out anything that's been in the trash past its time
+    await TrashService.purgeExpired(adminClient);
 
     if (!result.success) {
       return apiError(result.error || 'Failed to delete category', 400);

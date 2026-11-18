@@ -32,7 +32,7 @@ export const RECIPE_SUMMARY_SELECT = `
   id, uid, title, subtitle, short_description,
   feature_image_path, feature_image_alt, feature_image_focus_x, feature_image_focus_y,
   prep_time, cook_time, rest_time, total_time,
-  recipe_categories(category:categories(id, type, uid, title)),
+  recipe_categories(category:categories(id, type, uid, title, deleted_at)),
   recipe_ingredients(ingredient_id)
 `;
 
@@ -44,11 +44,11 @@ const RECIPE_FULL_SELECT = `
   serving_suggestions, tips,
   published_at,
   created_at, updated_at,
-  recipe_categories(category:categories(id, type, uid, title)),
+  recipe_categories(category:categories(id, type, uid, title, deleted_at)),
   recipe_accompanying!recipe_accompanying_recipe_id_fkey(accompanying:recipes!recipe_accompanying_accompanying_id_fkey(
     id, uid, title, subtitle, short_description, feature_image_path, feature_image_alt, feature_image_focus_x, feature_image_focus_y,
-    prep_time, cook_time, rest_time, total_time,
-    recipe_categories(category:categories(id, type, uid, title))
+    prep_time, cook_time, rest_time, total_time, deleted_at,
+    recipe_categories(category:categories(id, type, uid, title, deleted_at))
   ))
 `;
 
@@ -78,16 +78,28 @@ export interface RawRecipeRow {
   published_at?: string;
   created_at?: string;
   updated_at?: string;
-  recipe_categories: { category: Category }[];
+  /** Set while the recipe is in the trash */
+  deleted_at?: string | null;
+  /** category is null when the reader can't see it (in the trash) */
+  recipe_categories: { category: (Category & { deleted_at?: string | null }) | null }[];
   recipe_ingredients?: { ingredient_id: string }[];
-  recipe_accompanying?: { accompanying: RawRecipeRow }[];
+  recipe_accompanying?: { accompanying: RawRecipeRow | null }[];
 }
+
+/** Embedded rows the public can't see come back null; the service role sees them with deleted_at set */
+const isLive = <T extends { deleted_at?: string | null }>(row: T | null): row is T => !!row && !row.deleted_at;
 
 /**
  * Transform raw Supabase join data into flat Recipe/RecipeSummary types
  */
 function transformCategories(row: RawRecipeRow) {
-  const cats = (row.recipe_categories || []).map((rc) => rc.category);
+  const cats = (row.recipe_categories || [])
+    .map((rc) => rc.category)
+    .filter(isLive)
+    .map(({ deleted_at: _trashed, ...c }) => {
+      void _trashed;
+      return c;
+    });
   return {
     course_categories: cats.filter((c) => c.type === 'course'),
     cuisine_categories: cats.filter((c) => c.type === 'cuisine'),
@@ -115,7 +127,7 @@ export function toRecipeSummary(row: RawRecipeRow): RecipeSummary {
   };
 }
 
-function toRecipe(row: RawRecipeRow): Recipe {
+export function toRecipe(row: RawRecipeRow): Recipe {
   return {
     id: row.id,
     uid: row.uid,
@@ -143,7 +155,10 @@ function toRecipe(row: RawRecipeRow): Recipe {
     created_at: row.created_at || '',
     updated_at: row.updated_at || '',
     ...transformCategories(row),
-    accompanying_recipes: (row.recipe_accompanying || []).map((ra) => toRecipeSummary(ra.accompanying)),
+    accompanying_recipes: (row.recipe_accompanying || [])
+      .map((ra) => ra.accompanying)
+      .filter(isLive)
+      .map(toRecipeSummary),
   };
 }
 
@@ -390,7 +405,7 @@ class RecipeServiceClass extends BaseQueryService {
 
       if (error) {
         if (error.code === '23505') {
-          return { success: false, error: 'A recipe with this UID already exists' };
+          return { success: false, error: await this._uidTakenMessage(supabase, recipeData.uid) };
         }
         throw error;
       }
@@ -447,7 +462,12 @@ class RecipeServiceClass extends BaseQueryService {
         .update(recipeData)
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') {
+          return { success: false, error: await this._uidTakenMessage(supabase, recipeData.uid) };
+        }
+        throw error;
+      }
 
       // Replace junction rows
       await this._syncIngredients(supabase, id, recipeData.ingredient_groups);
@@ -468,7 +488,8 @@ class RecipeServiceClass extends BaseQueryService {
   }
 
   /**
-   * Delete a recipe (use admin client). CASCADE handles junction cleanup.
+   * Move a recipe to the trash (use admin client). Its favourites, links and
+   * schedule stay, so TrashService.restore brings it back as it was.
    */
   async deleteRecipe(
     supabase: SupabaseClient,
@@ -477,7 +498,7 @@ class RecipeServiceClass extends BaseQueryService {
     try {
       const { error } = await supabase
         .from('recipes')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id);
 
       if (error) throw error;
@@ -540,6 +561,14 @@ class RecipeServiceClass extends BaseQueryService {
    * Delete/reinsert junction rows for categories and accompanying recipes.
    * This "replace all" strategy is simpler and atomic for small sets.
    */
+  /** Why a recipe's web address (uid) can't be used */
+  private async _uidTakenMessage(supabase: SupabaseClient, uid: string): Promise<string> {
+    const { data } = await supabase.from('recipes').select('title, deleted_at').eq('uid', uid).maybeSingle();
+    return data?.deleted_at
+      ? `"${data.title}" in the Trash uses the web address "${uid}". Restore it, or delete it forever, first.`
+      : `Another recipe already uses the web address "${uid}".`;
+  }
+
   private async _syncJunctions(
     supabase: SupabaseClient,
     recipeId: string,
@@ -550,8 +579,19 @@ class RecipeServiceClass extends BaseQueryService {
       accompanying_recipe_ids: string[];
     }
   ): Promise<void> {
-    // Categories — delete all then reinsert
-    await supabase.from('recipe_categories').delete().eq('recipe_id', recipeId);
+    // Links to trashed categories and recipes aren't in the form (it can't see
+    // them), so leave those rows alone; restoring the item brings them back.
+    const [{ data: trashedCats }, { data: trashedRecipes }] = await Promise.all([
+      supabase.from('categories').select('id').not('deleted_at', 'is', null),
+      supabase.from('recipes').select('id').not('deleted_at', 'is', null),
+    ]);
+    const keepCats = (trashedCats || []).map((c) => c.id as string);
+    const keepRecipes = (trashedRecipes || []).map((r) => r.id as string);
+
+    // Categories — delete all (but trashed) then reinsert
+    let catDelete = supabase.from('recipe_categories').delete().eq('recipe_id', recipeId);
+    if (keepCats.length) catDelete = catDelete.not('category_id', 'in', `(${keepCats.join(',')})`);
+    await catDelete;
 
     const allCategoryIds = [
       ...ids.course_category_ids,
@@ -565,8 +605,10 @@ class RecipeServiceClass extends BaseQueryService {
       );
     }
 
-    // Accompanying recipes — delete all then reinsert
-    await supabase.from('recipe_accompanying').delete().eq('recipe_id', recipeId);
+    // Accompanying recipes — delete all (but trashed) then reinsert
+    let accDelete = supabase.from('recipe_accompanying').delete().eq('recipe_id', recipeId);
+    if (keepRecipes.length) accDelete = accDelete.not('accompanying_id', 'in', `(${keepRecipes.join(',')})`);
+    await accDelete;
 
     if (ids.accompanying_recipe_ids.length > 0) {
       await supabase.from('recipe_accompanying').insert(

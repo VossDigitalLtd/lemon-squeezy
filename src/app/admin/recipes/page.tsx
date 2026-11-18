@@ -17,6 +17,7 @@ import {
 import { useDebounce } from '@/hooks';
 import { useToast } from '@/lib/toast/context';
 import { getImageUrl, imageFocus } from '@/lib/recipes';
+import { TRASH_DAYS } from '@/lib/trash';
 import type { RecipeSummary } from '@/types/recipe';
 
 export default function AdminRecipesPage() {
@@ -65,7 +66,7 @@ export default function AdminRecipesPage() {
       const res = await fetch(`/api/recipe/${deleteTarget.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete');
       setRecipes((prev) => prev.filter((r) => r.id !== deleteTarget.id));
-      addToast('Recipe deleted', 'success');
+      addToast(`Moved "${deleteTarget.title}" to the Trash`, 'success');
       setDeleteTarget(null);
     } catch {
       addToast('Failed to delete recipe', 'error');
@@ -211,9 +212,10 @@ export default function AdminRecipesPage() {
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Recipe</DialogTitle>
+            <DialogTitle>Move to Trash?</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{deleteTarget?.title}&quot;? This action cannot be undone.
+              &quot;{deleteTarget?.title}&quot; will come off the site straight away. You can restore it from{' '}
+              <Link href="/admin/trash" className="underline">Trash</Link> for {TRASH_DAYS} days, after which it&rsquo;s deleted for good.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -221,7 +223,7 @@ export default function AdminRecipesPage() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? 'Deleting...' : 'Delete'}
+              {deleting ? 'Moving…' : 'Move to Trash'}
             </Button>
           </DialogFooter>
         </DialogContent>

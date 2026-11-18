@@ -11,6 +11,7 @@ import { useToast } from '@/lib/toast/context';
 import { getImageUrl } from '@/lib/recipes';
 import type { Category, CategoryType } from '@/types/recipe';
 import type { CategoryUpdate } from '@/lib/supabase/services/CategoryService';
+import { TRASH_DAYS } from '@/lib/trash';
 
 const TAB_CONFIG: { type: CategoryType; label: string }[] = [
   { type: 'course', label: 'Courses' },
@@ -199,7 +200,7 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
       const res = await fetch(`/api/category/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete');
       onDeleted(id);
-      addToast('Category deleted', 'success');
+      addToast(`Moved to the Trash. You can restore it there for ${TRASH_DAYS} days.`, 'success');
     } catch {
       addToast('Failed to delete category', 'error');
     } finally {
@@ -313,6 +314,7 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
                     size="sm"
                     onClick={() => handleDelete(cat.id)}
                     disabled={deletingId === cat.id}
+                    title="Move to Trash"
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 size={14} />

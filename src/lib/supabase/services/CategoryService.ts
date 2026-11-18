@@ -159,7 +159,13 @@ class CategoryServiceClass extends BaseQueryService {
 
       if (error) {
         if (error.code === '23505') {
-          return { success: false, error: 'A category with this name already exists' };
+          const { data: clash } = await supabase.from('categories').select('deleted_at').eq('type', input.type).eq('uid', uid).maybeSingle();
+          return {
+            success: false,
+            error: clash?.deleted_at
+              ? 'A category with this name is in the Trash. Restore it, or delete it forever, first.'
+              : 'A category with this name already exists',
+          };
         }
         throw error;
       }
@@ -202,7 +208,8 @@ class CategoryServiceClass extends BaseQueryService {
   }
 
   /**
-   * Delete a category (use admin client). CASCADE removes junction rows.
+   * Move a category to the trash (use admin client). Recipes keep their link
+   * to it, so TrashService.restore puts it back on them.
    */
   async deleteCategory(
     supabase: SupabaseClient,
@@ -211,7 +218,7 @@ class CategoryServiceClass extends BaseQueryService {
     try {
       const { error } = await supabase
         .from('categories')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id);
 
       if (error) throw error;
