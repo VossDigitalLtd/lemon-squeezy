@@ -18,6 +18,8 @@ import { weekStartOf } from '@/lib/weeks';
 import { cleanRestPeriods, type RestPeriod } from '@/lib/rest';
 import { cleanMethodLinks } from '@/lib/methodLinks';
 import { cleanFocus } from '@/lib/recipes';
+import { recipeToFormData } from '@/lib/recipeFormData';
+import { RevisionService, type RevisionMeta } from './RevisionService';
 import { parseIngredientName } from '@/lib/ingredientMatch';
 import type { ServiceResponse } from '@/types';
 import type {
@@ -432,14 +434,23 @@ class RecipeServiceClass extends BaseQueryService {
   }
 
   /**
-   * Update an existing recipe (use admin client)
+   * Update an existing recipe (use admin client). With `revision`, keeps a
+   * copy of the recipe as it was first, for its undo history.
    */
   async updateRecipe(
     supabase: SupabaseClient,
     id: string,
-    formData: RecipeFormData
+    formData: RecipeFormData,
+    revision?: RevisionMeta
   ): Promise<ServiceResponse<Recipe>> {
     try {
+      if (revision) {
+        const before = await this.getById(supabase, id);
+        if (before.success && before.data) {
+          await RevisionService.record(supabase, id, recipeToFormData(before.data), revision);
+        }
+      }
+
       const {
         course_category_ids,
         cuisine_category_ids,
@@ -561,6 +572,46 @@ class RecipeServiceClass extends BaseQueryService {
    * Delete/reinsert junction rows for categories and accompanying recipes.
    * This "replace all" strategy is simpler and atomic for small sets.
    */
+  /**
+   * Put a recipe back as it was in one of its revisions (use admin client).
+   * Links to categories or recipes deleted for good since are left out.
+   * Records the current version first, so the restore can be undone.
+   */
+  async restoreRevision(
+    supabase: SupabaseClient,
+    recipeId: string,
+    revisionId: string,
+    userId: string | null
+  ): Promise<ServiceResponse<Recipe>> {
+    const revision = await RevisionService.get(supabase, recipeId, revisionId);
+    if (!revision.success || !revision.data) return { success: false, error: revision.error };
+    const snapshot = revision.data.snapshot;
+
+    const categoryIds = [...snapshot.course_category_ids, ...snapshot.cuisine_category_ids, ...snapshot.dietary_category_ids];
+    const [{ data: cats }, { data: recipes }] = await Promise.all([
+      categoryIds.length ? supabase.from('categories').select('id').in('id', categoryIds) : { data: [] },
+      snapshot.accompanying_recipe_ids.length
+        ? supabase.from('recipes').select('id').in('id', snapshot.accompanying_recipe_ids)
+        : { data: [] },
+    ]);
+    const liveCats = new Set((cats || []).map((c) => c.id as string));
+    const liveRecipes = new Set((recipes || []).map((r) => r.id as string));
+    const when = new Date(revision.data.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+    return this.updateRecipe(
+      supabase,
+      recipeId,
+      {
+        ...snapshot,
+        course_category_ids: snapshot.course_category_ids.filter((id) => liveCats.has(id)),
+        cuisine_category_ids: snapshot.cuisine_category_ids.filter((id) => liveCats.has(id)),
+        dietary_category_ids: snapshot.dietary_category_ids.filter((id) => liveCats.has(id)),
+        accompanying_recipe_ids: snapshot.accompanying_recipe_ids.filter((id) => liveRecipes.has(id)),
+      },
+      { source: 'admin', userId, summary: `Restored the version from ${when}` }
+    );
+  }
+
   /** Why a recipe's web address (uid) can't be used */
   private async _uidTakenMessage(supabase: SupabaseClient, uid: string): Promise<string> {
     const { data } = await supabase.from('recipes').select('title, deleted_at').eq('uid', uid).maybeSingle();

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient, getUserId } from '@/lib/supabase/server';
 import { RecipeService, TrashService } from '@/lib/supabase/services';
 import { ok, apiError } from '@/lib/api/response';
 import { requireStaff } from '@/lib/auth/requireStaff';
@@ -53,7 +53,10 @@ export async function PUT(
     }
 
     const adminClient = createAdminClient();
-    const result = await RecipeService.updateRecipe(adminClient, id, body);
+    const result = await RecipeService.updateRecipe(adminClient, id, body, {
+      source: 'admin',
+      userId: await getUserId(supabase),
+    });
 
     if (!result.success) {
       return apiError(result.error || 'Failed to update recipe', 400);

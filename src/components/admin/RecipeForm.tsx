@@ -55,6 +55,7 @@ import { IngredientPicker } from './IngredientPicker';
 import { MethodCheckPanel } from '@/components/admin/MethodCheckPanel';
 import { FocalPointPicker } from '@/components/admin/FocalPointPicker';
 import { EMPTY_METHOD_LINKS } from '@/lib/methodLinks';
+import { recipeToFormData } from '@/lib/recipeFormData';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -96,36 +97,18 @@ function emptyFormData(): RecipeFormData {
   };
 }
 
-function recipeToFormData(recipe: Recipe): RecipeFormData {
+/** The saved recipe, with a blank row to type into where a list is empty */
+function recipeToEditorData(recipe: Recipe): RecipeFormData {
+  const data = recipeToFormData(recipe);
   return {
-    uid: recipe.uid,
-    title: recipe.title,
-    subtitle: recipe.subtitle,
-    short_description: recipe.short_description,
-    full_description: recipe.full_description,
-    feature_image_path: recipe.feature_image_path || undefined,
-    feature_image_alt: recipe.feature_image_alt || undefined,
-    feature_image_focus_x: recipe.feature_image_focus_x ?? null,
-    feature_image_focus_y: recipe.feature_image_focus_y ?? null,
-    prep_time: recipe.prep_time,
-    cook_time: recipe.cook_time,
-    servings: recipe.servings,
-    calories_per_serving: recipe.calories_per_serving,
-    rest_periods: recipe.rest_periods ?? [],
-    ingredient_groups: recipe.ingredient_groups.length > 0
-      ? recipe.ingredient_groups
+    ...data,
+    ingredient_groups: data.ingredient_groups.length > 0
+      ? data.ingredient_groups
       : [{ group_title: '', items: [{ ...EMPTY_INGREDIENT }] }],
-    method_groups: recipe.method_groups.length > 0
-      ? recipe.method_groups
+    method_groups: data.method_groups.length > 0
+      ? data.method_groups
       : [{ group_title: '', items: [''] }],
-    method_links: recipe.method_links ?? EMPTY_METHOD_LINKS,
-    serving_suggestions: recipe.serving_suggestions,
-    tips: recipe.tips,
-    published_at: recipe.published_at || undefined,
-    course_category_ids: recipe.course_categories.map((c) => c.id),
-    cuisine_category_ids: recipe.cuisine_categories.map((c) => c.id),
-    dietary_category_ids: recipe.dietary_categories.map((c) => c.id),
-    accompanying_recipe_ids: recipe.accompanying_recipes.map((r) => r.id),
+    method_links: data.method_links ?? EMPTY_METHOD_LINKS,
   };
 }
 
@@ -148,7 +131,7 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
   const isEditing = !!recipe;
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<RecipeFormData>(
-    recipe ? recipeToFormData(recipe) : emptyFormData()
+    recipe ? recipeToEditorData(recipe) : emptyFormData()
   );
   const [uploading, setUploading] = useState(false);
   // One key per ingredient row, group by group, in step with form.ingredient_groups

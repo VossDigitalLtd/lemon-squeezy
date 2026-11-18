@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import RecipeForm from '@/components/admin/RecipeForm';
+import { RecipeHistory } from '@/components/admin/RecipeHistory';
 import { useToast } from '@/lib/toast/context';
 import type { Recipe, Category } from '@/types/recipe';
 
@@ -75,6 +76,7 @@ export default function EditRecipePage() {
         <p className="text-sm text-muted-foreground mt-1">{recipe.title}</p>
       </div>
       <RecipeForm recipe={recipe} categories={categories} />
+      <RecipeHistory recipeId={recipe.id} />
     </div>
   );
 }

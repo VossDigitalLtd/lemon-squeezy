@@ -9,3 +9,4 @@ export { ShoppingListService } from './ShoppingListService';
 export { MealPlanService } from './MealPlanService';
 export { IngredientService } from './IngredientService';
 export { TrashService } from './TrashService';
+export { RevisionService } from './RevisionService';
