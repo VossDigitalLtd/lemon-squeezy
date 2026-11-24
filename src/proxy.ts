@@ -1,8 +1,18 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { isMissingRecipe } from "@/lib/recipeRoutes";
 
 export async function proxy(request: NextRequest) {
-  return await updateSession(request);
+  const response = await updateSession(request);
+  if (response.status !== 200 || response.headers.has("location")) return response;
+
+  // A recipe address the visitor can't see gets a real 404 (see lib/recipeRoutes.ts)
+  if (await isMissingRecipe(request)) {
+    const notFound = NextResponse.rewrite(new URL("/_not-found", request.url), { status: 404 });
+    for (const cookie of response.cookies.getAll()) notFound.cookies.set(cookie);
+    return notFound;
+  }
+  return response;
 }
 
 export const config = {

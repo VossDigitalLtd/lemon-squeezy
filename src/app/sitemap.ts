@@ -3,6 +3,9 @@ import { createAdminClient } from '@/lib/supabase/server';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://lemonsqueezy.co.uk';
 
+// Rebuilt at most hourly, so newly published recipes appear without a redeploy
+export const revalidate = 3600;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = createAdminClient();
 
