@@ -18,7 +18,8 @@ import { RECIPE_SUMMARY_SELECT, toRecipeSummary, type RawRecipeRow } from './Rec
 
 class FavouriteServiceClass {
   /**
-   * Get all favourite recipe IDs for a user, leaving out recipes in the trash
+   * Get all favourite recipe IDs for a user, leaving out recipes not on the site
+   * (in the trash, drafts, archived)
    */
   async getUserFavouriteIds(
     supabase: SupabaseClient,
@@ -30,7 +31,7 @@ class FavouriteServiceClass {
       // relationship in the database to join on.
       const [{ data, error }, { data: live, error: liveError }] = await Promise.all([
         supabase.from('favourites').select('recipe_id').eq('user_id', userId),
-        supabase.from('recipes').select('id').is('deleted_at', null),
+        supabase.from('recipes').select('id').is('deleted_at', null).eq('status', 'published'),
       ]);
 
       if (error) throw error;
@@ -75,7 +76,8 @@ class FavouriteServiceClass {
       const { data: rows, error } = await supabase
         .from('recipes')
         .select(RECIPE_SUMMARY_SELECT)
-        .in('id', ids);
+        .in('id', ids)
+        .eq('status', 'published');
       if (error) throw error;
 
       // Keep most-recently-saved order; skip favourites whose recipe has gone

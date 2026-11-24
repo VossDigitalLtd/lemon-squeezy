@@ -40,6 +40,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: recipe.subtitle ? `${recipe.title} (${recipe.subtitle})` : recipe.title,
     description: recipe.short_description,
+    // Drafts and archived recipes only open for staff; keep them out of search engines
+    ...(recipe.status !== 'published' ? { robots: { index: false, follow: false } } : {}),
     openGraph: {
       title: recipe.title,
       description: recipe.short_description,
@@ -70,11 +72,26 @@ export default async function RecipePage({ params }: PageProps) {
     ...recipe.dietary_categories,
   ];
   const course = recipe.course_categories[0];
+  // Staff can open unpublished recipes; visitors only ever get published ones
+  const pairs = recipe.accompanying_recipes.filter((r) => r.status === 'published');
 
   const isFavourited = !!favouriteIdsResult?.data?.includes(recipe.id);
 
   return (
     <>
+      {recipe.status !== 'published' && (
+        <div role="status" className="bg-brand-muted">
+          <p className="mx-auto max-w-7xl px-4 py-3 text-sm sm:px-8">
+            <strong>{recipe.status === 'draft' ? 'Draft' : 'Archived'}:</strong>{' '}
+            {recipe.status === 'draft'
+              ? 'not on the site yet. Only editors and admins can see this page.'
+              : 'taken off the site. Only editors and admins can see this page.'}{' '}
+            <Link href={`/admin/recipe/${recipe.id}/edit`} className="font-medium underline">
+              Edit or publish
+            </Link>
+          </p>
+        </div>
+      )}
       <article className="mx-auto max-w-7xl px-4 sm:px-8">
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="flex flex-wrap gap-1.5 pt-6 text-sm text-muted-foreground">
@@ -205,7 +222,7 @@ export default async function RecipePage({ params }: PageProps) {
       </article>
 
       {/* Goes well with */}
-      {recipe.accompanying_recipes.length > 0 && (
+      {pairs.length > 0 && (
         <>
           <LaceBand className="mt-20" />
           <section aria-labelledby="pairs-title" className="mx-auto max-w-7xl px-4 pt-12 sm:px-8">
@@ -214,7 +231,7 @@ export default async function RecipePage({ params }: PageProps) {
             </h2>
             <p className="mt-1.5 text-muted-foreground">Make it a meal.</p>
             <div className="mt-7 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
-              {recipe.accompanying_recipes.map((r) => (
+              {pairs.map((r) => (
                 <RecipeCard key={r.id} recipe={r} sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" />
               ))}
             </div>

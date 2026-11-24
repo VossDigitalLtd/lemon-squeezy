@@ -27,6 +27,7 @@ function recipe(id: string, course: string, opts: Partial<RecipeSummary> & { cui
     cook_time: 20,
     total_time: 30,
     rest_time: null,
+    status: 'published',
     course_categories: [cat('course', course)],
     cuisine_categories: cuisine ? [cat('cuisine', cuisine)] : [],
     dietary_categories: (diet ?? []).map((d) => cat('dietary', d)),

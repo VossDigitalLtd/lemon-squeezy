@@ -15,9 +15,11 @@ type State =
   | { kind: 'ask'; details: OAuthAuthorizationDetails };
 
 const CAN_DO = [
-  'Search and read recipes',
+  'Search and read recipes, including drafts and archived ones',
   'Change recipes: ingredients, method, times, descriptions, categories',
-  'Add new recipes',
+  'Add new recipes (as drafts)',
+  'Publish, unpublish and archive recipes',
+  'Move recipes to the Trash',
 ];
 
 export function ConsentForm() {
@@ -119,8 +121,8 @@ export function ConsentForm() {
         ))}
       </ul>
       <p className="mt-4 text-sm text-muted-foreground">
-        Changes go live straight away. Each recipe’s History in the admin keeps the previous versions, so any change can be undone.
-        It can’t delete recipes or change photos.
+        Changes to published recipes go live straight away. Each recipe’s History in the admin keeps the previous versions, and the
+        Trash keeps deleted recipes for 30 days, so changes can be undone. It can’t change photos or empty the Trash.
       </p>
       <div className="mt-6 flex flex-wrap gap-3">
         <Button onClick={() => decide(true)} disabled={busy}>

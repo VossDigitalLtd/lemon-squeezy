@@ -16,6 +16,7 @@ function recipe(partial: Partial<RecipeSummary> & { id: string }): RecipeSummary
     cook_time: null,
     total_time: null,
     rest_time: null,
+    status: 'published',
     course_categories: [],
     cuisine_categories: [],
     dietary_categories: [],

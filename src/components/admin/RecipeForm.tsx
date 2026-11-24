@@ -49,6 +49,7 @@ import type {
   IngredientGroup,
   LibraryIngredient,
   MethodGroup,
+  RecipeStatus,
   RecipeSummary,
 } from '@/types/recipe';
 import { IngredientPicker } from './IngredientPicker';
@@ -90,6 +91,7 @@ function emptyFormData(): RecipeFormData {
     method_links: EMPTY_METHOD_LINKS,
     serving_suggestions: '',
     tips: '',
+    status: 'published',
     course_category_ids: [],
     cuisine_category_ids: [],
     dietary_category_ids: [],
@@ -806,6 +808,21 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
       {/* ── Publishing ── */}
       <Section title="Publishing">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Status">
+            <Select value={form.status ?? 'published'} onValueChange={(v) => updateField('status', v as RecipeStatus)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="published">Published: on the site</SelectItem>
+                <SelectItem value="draft">Draft: not on the site yet</SelectItem>
+                <SelectItem value="archived">Archived: taken off the site</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Drafts and archived recipes are hidden from visitors; editors can still open them by their link.
+            </p>
+          </Field>
           <Field label="Published on">
             <Input
               type="date"

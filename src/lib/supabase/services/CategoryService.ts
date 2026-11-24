@@ -123,6 +123,7 @@ class CategoryServiceClass extends BaseQueryService {
             .from('recipes')
             .select('feature_image_path, feature_image_alt, recipe_categories!inner(category_id)')
             .eq('recipe_categories.category_id', cat.id)
+            .eq('status', 'published')
             .not('feature_image_path', 'is', null)
             .order('published_at', { ascending: false })
             .limit(1)

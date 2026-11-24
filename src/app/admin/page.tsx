@@ -100,7 +100,7 @@ export default function AdminDashboard() {
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
 
-    getJson('/api/recipe?limit=1').then((json) => setRecipeCount(json?.pagination?.totalCount ?? null));
+    getJson('/api/recipe?limit=1&status=all').then((json) => setRecipeCount(json?.pagination?.totalCount ?? null));
 
     getJson('/api/category').then((json) => {
       if (!json?.data) return setCategoryCount(null);

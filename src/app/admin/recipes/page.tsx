@@ -18,12 +18,22 @@ import { useDebounce } from '@/hooks';
 import { useToast } from '@/lib/toast/context';
 import { getImageUrl, imageFocus } from '@/lib/recipes';
 import { TRASH_DAYS } from '@/lib/trash';
-import type { RecipeSummary } from '@/types/recipe';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/utils/cn';
+import type { RecipeStatus, RecipeSummary } from '@/types/recipe';
+
+const STATUS_FILTERS: { value: RecipeStatus | 'all'; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'published', label: 'Published' },
+  { value: 'draft', label: 'Drafts' },
+  { value: 'archived', label: 'Archived' },
+];
 
 export default function AdminRecipesPage() {
   const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<RecipeStatus | 'all'>('all');
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -34,7 +44,7 @@ export default function AdminRecipesPage() {
   const fetchRecipes = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: '20' });
+      const params = new URLSearchParams({ page: String(page), limit: '20', status: statusFilter });
       if (debouncedSearch) params.set('search', debouncedSearch);
 
       const res = await fetch(`/api/recipe?${params}`, { cache: 'no-store' });
@@ -48,16 +58,16 @@ export default function AdminRecipesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, addToast]);
+  }, [page, debouncedSearch, statusFilter, addToast]);
 
   useEffect(() => {
     fetchRecipes();
   }, [fetchRecipes]);
 
-  // Reset to page 1 when search changes
+  // Reset to page 1 when search or the status filter changes
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, statusFilter]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -89,6 +99,24 @@ export default function AdminRecipesPage() {
             New Recipe
           </Link>
         </Button>
+      </div>
+
+      {/* Status */}
+      <div role="group" aria-label="Show" className="mb-3 inline-flex rounded-lg border border-border bg-card p-0.5">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => setStatusFilter(f.value)}
+            aria-pressed={statusFilter === f.value}
+            className={cn(
+              'rounded-md px-3 py-1 text-sm transition-colors',
+              statusFilter === f.value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {/* Search */}
@@ -147,12 +175,19 @@ export default function AdminRecipesPage() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   {/* The title's link covers the whole row, so clicking anywhere opens the editor */}
-                  <Link
-                    href={`/admin/recipe/${recipe.id}/edit`}
-                    className="block text-sm font-medium text-foreground truncate after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:rounded-[inherit] focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset"
-                  >
-                    {recipe.title}
-                  </Link>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Link
+                      href={`/admin/recipe/${recipe.id}/edit`}
+                      className="truncate text-sm font-medium text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:rounded-[inherit] focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset"
+                    >
+                      {recipe.title}
+                    </Link>
+                    {recipe.status !== 'published' && (
+                      <Badge variant={recipe.status === 'draft' ? 'secondary' : 'outline'} className="flex-shrink-0">
+                        {recipe.status === 'draft' ? 'Draft' : 'Archived'}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground truncate">{recipe.short_description}</p>
                 </div>
 

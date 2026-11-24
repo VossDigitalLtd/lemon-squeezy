@@ -27,13 +27,14 @@ import type {
   RecipeSummary,
   RecipeFormData,
   Category,
+  RecipeStatus,
 } from '@/types/recipe';
 
 // Select strings for Supabase queries
 export const RECIPE_SUMMARY_SELECT = `
   id, uid, title, subtitle, short_description,
   feature_image_path, feature_image_alt, feature_image_focus_x, feature_image_focus_y,
-  prep_time, cook_time, rest_time, total_time,
+  prep_time, cook_time, rest_time, total_time, status,
   recipe_categories(category:categories(id, type, uid, title, deleted_at)),
   recipe_ingredients(ingredient_id)
 `;
@@ -44,12 +45,12 @@ const RECIPE_FULL_SELECT = `
   prep_time, cook_time, rest_time, rest_periods, total_time, servings, calories_per_serving,
   ingredient_groups, method_groups, method_links,
   serving_suggestions, tips,
-  published_at,
+  status, published_at,
   created_at, updated_at,
   recipe_categories(category:categories(id, type, uid, title, deleted_at)),
   recipe_accompanying!recipe_accompanying_recipe_id_fkey(accompanying:recipes!recipe_accompanying_accompanying_id_fkey(
     id, uid, title, subtitle, short_description, feature_image_path, feature_image_alt, feature_image_focus_x, feature_image_focus_y,
-    prep_time, cook_time, rest_time, total_time, deleted_at,
+    prep_time, cook_time, rest_time, total_time, status, deleted_at,
     recipe_categories(category:categories(id, type, uid, title, deleted_at))
   ))
 `;
@@ -82,6 +83,7 @@ export interface RawRecipeRow {
   updated_at?: string;
   /** Set while the recipe is in the trash */
   deleted_at?: string | null;
+  status?: RecipeStatus;
   /** category is null when the reader can't see it (in the trash) */
   recipe_categories: { category: (Category & { deleted_at?: string | null }) | null }[];
   recipe_ingredients?: { ingredient_id: string }[];
@@ -124,6 +126,7 @@ export function toRecipeSummary(row: RawRecipeRow): RecipeSummary {
     cook_time: row.cook_time ?? null,
     rest_time: row.rest_time ?? null,
     total_time: row.total_time ?? null,
+    status: row.status ?? 'published',
     ...transformCategories(row),
     ingredient_ids: (row.recipe_ingredients || []).map((ri) => ri.ingredient_id),
   };
@@ -153,6 +156,7 @@ export function toRecipe(row: RawRecipeRow): Recipe {
     method_links: cleanMethodLinks(row.method_links),
     serving_suggestions: row.serving_suggestions || '',
     tips: row.tips || '',
+    status: row.status ?? 'published',
     published_at: row.published_at || row.created_at || '',
     created_at: row.created_at || '',
     updated_at: row.updated_at || '',
@@ -191,6 +195,11 @@ class RecipeServiceClass extends BaseQueryService {
       /** Only recipes with a feature image */
       withImage?: boolean;
       excludeIds?: string[];
+      /**
+       * Which recipes to list (default: published, for the public site). Staff
+       * see drafts and archived recipes too, so pass 'all' or a status for them.
+       */
+      status?: RecipeStatus | 'all';
     } = {}
   ): Promise<ServiceResponse<RecipeSummary[]> & { pagination?: Record<string, unknown> }> {
     try {
@@ -201,6 +210,9 @@ class RecipeServiceClass extends BaseQueryService {
       let query = supabase
         .from('recipes')
         .select(RECIPE_SUMMARY_SELECT, { count: 'exact' });
+
+      const status = options.status ?? 'published';
+      if (status !== 'all') query = query.eq('status', status);
 
       if (options.search) {
         query = query.or(`title.ilike.%${options.search}%,short_description.ilike.%${options.search}%`);
@@ -275,12 +287,13 @@ class RecipeServiceClass extends BaseQueryService {
 
       if (scheduled?.recipe_id) {
         const result = await this.getById(supabase, scheduled.recipe_id);
-        if (result.success && result.data) return result;
+        if (result.success && result.data?.status === 'published') return result;
       }
 
       const { data: fallback, error } = await supabase
         .from('recipes')
         .select(RECIPE_FULL_SELECT)
+        .eq('status', 'published')
         .not('feature_image_path', 'is', null)
         .order('published_at', { ascending: false })
         .limit(1)
@@ -548,6 +561,7 @@ class RecipeServiceClass extends BaseQueryService {
       const { data, error } = await supabase
         .from('recipes')
         .select('uid')
+        .eq('status', 'published')
         .order('published_at', { ascending: false });
 
       if (error) throw error;

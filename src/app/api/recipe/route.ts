@@ -3,9 +3,12 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { RecipeService } from '@/lib/supabase/services';
 import { ok, apiError } from '@/lib/api/response';
 import { requireStaff } from '@/lib/auth/requireStaff';
-import type { RecipeFormData } from '@/types/recipe';
+import { RECIPE_STATUSES, type RecipeFormData, type RecipeStatus } from '@/types/recipe';
 
-/** GET /api/recipe — list recipes with search + pagination */
+/**
+ * GET /api/recipe — list recipes with search + pagination. ?status=all|draft|archived
+ * lists unpublished recipes too; the read policies only return those to staff.
+ */
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -16,6 +19,7 @@ export async function GET(request: NextRequest) {
       limit: Number(searchParams.get('limit')) || 20,
       search: searchParams.get('search') || undefined,
       categoryId: searchParams.get('categoryId') || undefined,
+      status: parseStatus(searchParams.get('status')),
     });
 
     if (!result.success) {
@@ -66,4 +70,9 @@ export async function POST(request: Request) {
     console.error('POST /api/recipe error:', error);
     return apiError('Internal server error', 500);
   }
+}
+
+function parseStatus(value: string | null): RecipeStatus | 'all' | undefined {
+  if (value === 'all') return 'all';
+  return RECIPE_STATUSES.includes(value as RecipeStatus) ? (value as RecipeStatus) : undefined;
 }

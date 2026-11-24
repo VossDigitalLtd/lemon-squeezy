@@ -53,6 +53,17 @@ export interface MethodGroup {
   items: string[];
 }
 
+// ─── Status ──────────────────────────────────────────────────────────────────
+
+/**
+ * draft: not on the site yet. published: on the site. archived: taken off
+ * the site, kept indefinitely. Only editors and admins see drafts and
+ * archived recipes (migration 035).
+ */
+export type RecipeStatus = 'draft' | 'published' | 'archived';
+
+export const RECIPE_STATUSES: RecipeStatus[] = ['draft', 'published', 'archived'];
+
 // ─── Recipe (full, with joined data) ─────────────────────────────────────────
 
 export interface Recipe {
@@ -83,6 +94,7 @@ export interface Recipe {
   method_links: MethodLinks;
   serving_suggestions: string;
   tips: string;
+  status: RecipeStatus;
   published_at: string;
   course_categories: Category[];
   cuisine_categories: Category[];
@@ -109,6 +121,7 @@ export interface RecipeSummary {
   cook_time: number | null;
   rest_time: number | null;
   total_time: number | null;
+  status: RecipeStatus;
   course_categories: Category[];
   cuisine_categories: Category[];
   dietary_categories: Category[];
@@ -139,6 +152,8 @@ export interface RecipeFormData {
   method_links?: MethodLinks;
   serving_suggestions: string;
   tips: string;
+  /** Omitted: unchanged on save (published for a new recipe) */
+  status?: RecipeStatus;
   published_at?: string;
   course_category_ids: string[];
   cuisine_category_ids: string[];

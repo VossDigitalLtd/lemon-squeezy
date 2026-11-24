@@ -3,25 +3,30 @@ import { createClient as createSupabaseClient, type SupabaseClient } from '@supa
 import type { McpServer } from '@modelcontextprotocol/server';
 import { getPublicOrigin } from 'mcp-handler';
 import { createAdminClient } from '@/lib/supabase/server';
-import { RecipeService, CategoryService } from '@/lib/supabase/services';
+import { RecipeService, CategoryService, TrashService } from '@/lib/supabase/services';
 import { recipeToFormData } from '@/lib/recipeFormData';
 import { UNIT_KEYS, type UnitKey } from '@/lib/units';
 import { mcpUser } from './auth';
-import type { Category, CategoryType, Ingredient, IngredientGroup, MethodGroup, Recipe, RecipeFormData } from '@/types/recipe';
+import { TRASH_DAYS } from '@/lib/trash';
+import type { Category, CategoryType, Ingredient, IngredientGroup, MethodGroup, Recipe, RecipeFormData, RecipeStatus } from '@/types/recipe';
 
 /**
- * The tools ChatGPT can use on the recipes: search, read, edit and create.
- * Deleting stays in the admin. Edits save through RecipeService like the
- * admin does (ingredient library links, method links, undo history).
+ * The tools ChatGPT and Claude can use on the recipes: search, read, edit,
+ * create, publish/unpublish/archive and move to the Trash. Edits save
+ * through RecipeService like the admin does (ingredient library links,
+ * method links, undo history). Reads run as the signed-in editor, so they
+ * see drafts and archived recipes but not the Trash.
  */
 
-export const MCP_INSTRUCTIONS = `Lemon Squeezy is a UK recipe website. These tools read and change its live recipes; changes show on the site straight away, and every edit is kept in the recipe's History in the admin so it can be undone.
+export const MCP_INSTRUCTIONS = `Lemon Squeezy is a UK recipe website. These tools read and change its recipes. Each recipe is a draft (not on the site yet), published (on the site) or archived (taken off the site, kept). Changes to a published recipe show on the site straight away, and every edit and status change is kept in the recipe's History in the admin so it can be undone.
 
 - Always call get_recipe before update_recipe, and send whole lists (ingredient_groups, method_groups, categories, accompanying_recipes) when changing them: a list you send replaces the old one.
 - Write in UK English with metric amounts (g, ml, tsp, tbsp). The site converts to imperial and scales servings itself, including amounts written in method steps (e.g. "Add 500ml of stock"), so write steps for the recipe's own servings.
 - Ingredients: quantity is a number (0.5, not "½"), unit is one of the listed units or null for plain counts ("3 eggs" is quantity 3, unit null, name "eggs"), name is the ingredient ("sage"), note is preparation ("finely chopped"). "8 sage leaves" is quantity 8, unit "leaf", name "sage".
 - Describe each change in update_recipe's summary, in a few words; it's shown in the History.
-- Photos, publishing dates and deleting recipes are done in the admin, not here.`;
+- New recipes from create_recipe are drafts. Publish one with set_recipe_status only when asked to; archive takes a recipe off the site without deleting it.
+- delete_recipe moves a recipe to the Trash, where it can be restored in the admin for ${TRASH_DAYS} days; prefer archiving unless the person wants it deleted.
+- Photos and emptying the Trash are done in the admin, not here.`;
 
 const UNITS = UNIT_KEYS as [UnitKey, ...UnitKey[]];
 
@@ -81,14 +86,29 @@ type RecipeChanges = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Public reads go through the read policies, so trashed recipes stay hidden
+/**
+ * Reads run as the signed-in editor (their OAuth token), so the read
+ * policies show drafts and archived recipes but keep the Trash hidden.
+ * Without a token (tests), reads are public: published recipes only.
+ */
 let publicClient: SupabaseClient | null = null;
-function reader(): SupabaseClient {
-  publicClient ??= createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+function reader(token?: string): SupabaseClient {
+  const options = { auth: { persistSession: false, autoRefreshToken: false } };
+  if (token) {
+    return createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      ...options,
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+  }
+  publicClient ??= createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, options);
   return publicClient;
 }
+
+const STATUS_NOTE: Record<RecipeStatus, string> = {
+  draft: 'Draft: not on the site yet.',
+  published: 'Published: on the site.',
+  archived: 'Archived: taken off the site.',
+};
 
 const text = (value: unknown) => ({ content: [{ type: 'text' as const, text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }] });
 const fail = (message: string) => ({ ...text(message), isError: true });
@@ -106,12 +126,13 @@ function generateUid(title: string): string {
     .replace(/^-|-$/g, '');
 }
 
-/** A recipe as ChatGPT reads and writes it */
+/** A recipe as the assistant reads and writes it */
 function forChat(recipe: Recipe, origin: string) {
   return {
     id: recipe.id,
     uid: recipe.uid,
     url: `${origin}/${recipe.uid}`,
+    status: recipe.status,
     title: recipe.title,
     subtitle: recipe.subtitle,
     short_description: recipe.short_description,
@@ -134,24 +155,25 @@ function forChat(recipe: Recipe, origin: string) {
       cuisine: recipe.cuisine_categories.map((c) => c.title),
       dietary: recipe.dietary_categories.map((c) => c.title),
     },
-    accompanying_recipes: recipe.accompanying_recipes.map((r) => ({ uid: r.uid, title: r.title })),
+    accompanying_recipes: recipe.accompanying_recipes.map((r) => ({ uid: r.uid, title: r.title, status: r.status })),
     has_photo: !!recipe.feature_image_path,
     published_at: recipe.published_at,
   };
 }
 
-async function findRecipe(ref: string): Promise<Recipe | null> {
+async function findRecipe(ref: string, client: SupabaseClient): Promise<Recipe | null> {
   const clean = ref.trim().replace(/^.*\/(?=[^/]+$)/, ''); // accept a full recipe URL too
-  const result = UUID_RE.test(clean) ? await RecipeService.getById(reader(), clean) : await RecipeService.getByUid(reader(), clean);
+  const result = UUID_RE.test(clean) ? await RecipeService.getById(client, clean) : await RecipeService.getByUid(client, clean);
   return result.success && result.data ? result.data : null;
 }
 
 /** Category titles or uids → ids, or an error naming the valid ones */
 async function resolveCategories(
   wanted: NonNullable<RecipeChanges['categories']>,
-  current: Pick<RecipeFormData, 'course_category_ids' | 'cuisine_category_ids' | 'dietary_category_ids'>
+  current: Pick<RecipeFormData, 'course_category_ids' | 'cuisine_category_ids' | 'dietary_category_ids'>,
+  client: SupabaseClient
 ): Promise<{ ids: typeof current } | { error: string }> {
-  const all = await CategoryService.getAllGrouped(reader());
+  const all = await CategoryService.getAllGrouped(client);
   if (!all.success || !all.data) return { error: 'Could not load the categories' };
   const byType: Record<CategoryType, Category[]> = { course: all.data.courses, cuisine: all.data.cuisines, dietary: all.data.dietaries };
   const ids = { ...current };
@@ -171,8 +193,8 @@ async function resolveCategories(
 }
 
 /** Recipe uids or titles → ids, or an error */
-async function resolveRecipes(refs: string[], selfId?: string): Promise<{ ids: string[] } | { error: string }> {
-  const { data, error } = await reader().from('recipes').select('id, uid, title');
+async function resolveRecipes(refs: string[], client: SupabaseClient, selfId?: string): Promise<{ ids: string[] } | { error: string }> {
+  const { data, error } = await client.from('recipes').select('id, uid, title');
   if (error || !data) return { error: 'Could not load the recipes' };
   const ids: string[] = [];
   for (const ref of refs) {
@@ -184,7 +206,7 @@ async function resolveRecipes(refs: string[], selfId?: string): Promise<{ ids: s
   return { ids: [...new Set(ids)] };
 }
 
-/** ChatGPT's ingredient lists, keeping each line's ingredient-library link where the name is unchanged */
+/** The assistant's ingredient lists, keeping each line's ingredient-library link where the name is unchanged */
 export function toIngredientGroups(groups: NonNullable<RecipeChanges['ingredient_groups']>, previous: IngredientGroup[] = []): IngredientGroup[] {
   const linkByName = new Map(
     previous.flatMap((g) => g.items).filter((i) => i.ingredient_id).map((i) => [i.name.trim().toLowerCase(), i.ingredient_id!])
@@ -207,8 +229,12 @@ export function toIngredientGroups(groups: NonNullable<RecipeChanges['ingredient
 const toMethodGroups = (groups: NonNullable<RecipeChanges['method_groups']>): MethodGroup[] =>
   groups.map((g) => ({ group_title: g.group_title.trim(), items: g.steps.map((s) => s.trim()) }));
 
-/** Apply ChatGPT's changes to a recipe's form data */
-export async function applyChanges(data: RecipeFormData, changes: RecipeChanges, selfId?: string): Promise<RecipeFormData | { error: string }> {
+/** Apply the assistant's changes to a recipe's form data */
+export async function applyChanges(
+  data: RecipeFormData,
+  changes: RecipeChanges,
+  { selfId, client }: { selfId?: string; client?: SupabaseClient } = {}
+): Promise<RecipeFormData | { error: string }> {
   const next: RecipeFormData = { ...data };
   for (const key of ['title', 'subtitle', 'short_description', 'full_description', 'serving_suggestions', 'tips'] as const) {
     if (changes[key] !== undefined) next[key] = changes[key]!.trim();
@@ -219,12 +245,12 @@ export async function applyChanges(data: RecipeFormData, changes: RecipeChanges,
   if (changes.ingredient_groups) next.ingredient_groups = toIngredientGroups(changes.ingredient_groups, data.ingredient_groups);
   if (changes.method_groups) next.method_groups = toMethodGroups(changes.method_groups);
   if (changes.categories) {
-    const resolved = await resolveCategories(changes.categories, next);
+    const resolved = await resolveCategories(changes.categories, next, client ?? reader());
     if ('error' in resolved) return resolved;
     Object.assign(next, resolved.ids);
   }
   if (changes.accompanying_recipes) {
-    const resolved = await resolveRecipes(changes.accompanying_recipes, selfId);
+    const resolved = await resolveRecipes(changes.accompanying_recipes, client ?? reader(), selfId);
     if ('error' in resolved) return resolved;
     next.accompanying_recipe_ids = resolved.ids;
   }
@@ -235,29 +261,32 @@ export async function applyChanges(data: RecipeFormData, changes: RecipeChanges,
 export function registerRecipeTools(server: McpServer) {
   const readOnly = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
   const writes = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
+  const destructive = { readOnlyHint: false, destructiveHint: true, openWorldHint: false };
   const _meta = { securitySchemes: [{ type: 'oauth2' }] };
 
   server.registerTool(
     'search_recipes',
     {
       title: 'Search recipes',
-      description: 'Find recipes by words in their title or description. With no query, lists the newest. Returns ids, uids, titles and links.',
+      description:
+        'Find recipes by words in their title or description. With no query, lists the newest. Returns ids, uids, titles, status and links. Includes drafts and archived recipes unless status says otherwise.',
       inputSchema: z.object({
         query: z.string().optional().describe('Words to look for, e.g. "gnocchi" or "chorizo soup"'),
+        status: z.enum(['all', 'draft', 'published', 'archived']).optional().describe('Only recipes with this status (default all)'),
         limit: z.number().int().min(1).max(100).optional().describe('How many to return (default 20)'),
       }),
       annotations: readOnly,
       _meta,
     },
-    async ({ query, limit }, ctx) => {
+    async ({ query, status, limit }, ctx) => {
       // Characters that would break the search filter
       const search = query?.replace(/[,()%*\\]/g, ' ').trim() || undefined;
-      const result = await RecipeService.getAll(reader(), { search, limit: limit ?? 20 });
+      const result = await RecipeService.getAll(reader(ctx.http?.authInfo?.token), { search, limit: limit ?? 20, status: status ?? 'all' });
       if (!result.success) return fail(result.error || 'Search failed');
       const origin = siteUrl(ctx.http?.req);
       return text({
         total: result.pagination?.totalCount,
-        recipes: result.data!.map((r) => ({ id: r.id, uid: r.uid, title: r.title, subtitle: r.subtitle || undefined, url: `${origin}/${r.uid}` })),
+        recipes: result.data!.map((r) => ({ id: r.id, uid: r.uid, title: r.title, subtitle: r.subtitle || undefined, status: r.status, url: `${origin}/${r.uid}` })),
       });
     }
   );
@@ -272,7 +301,7 @@ export function registerRecipeTools(server: McpServer) {
       _meta,
     },
     async ({ recipe: ref }, ctx) => {
-      const recipe = await findRecipe(ref);
+      const recipe = await findRecipe(ref, reader(ctx.http?.authInfo?.token));
       if (!recipe) return fail(`No recipe "${ref}". Use search_recipes to find it.`);
       return text(forChat(recipe, siteUrl(ctx.http?.req)));
     }
@@ -300,7 +329,7 @@ export function registerRecipeTools(server: McpServer) {
     {
       title: 'Update a recipe',
       description:
-        'Change a live recipe. Send only the fields to change; lists you send (ingredients, method, categories, accompanying recipes) replace the old ones, so send them whole. The previous version is kept in the recipe History.',
+        'Change a recipe\'s content (not its status: use set_recipe_status). Send only the fields to change; lists you send (ingredients, method, categories, accompanying recipes) replace the old ones, so send them whole. The previous version is kept in the recipe History.',
       inputSchema: z.object({
         recipe: z.string().describe('The recipe uid, id or page link'),
         summary: z.string().min(3).max(200).describe('What changed, in a few words, e.g. "Added 8 sage leaves"'),
@@ -317,10 +346,11 @@ export function registerRecipeTools(server: McpServer) {
     async ({ recipe: ref, summary, changes }, ctx) => {
       const user = mcpUser(ctx.http?.authInfo);
       if (!user) return fail('Not signed in');
-      const recipe = await findRecipe(ref);
+      const client = reader(ctx.http?.authInfo?.token);
+      const recipe = await findRecipe(ref, client);
       if (!recipe) return fail(`No recipe "${ref}". Use search_recipes to find it.`);
 
-      const next = await applyChanges(recipeToFormData(recipe), changes, recipe.id);
+      const next = await applyChanges(recipeToFormData(recipe), changes, { selfId: recipe.id, client });
       if ('error' in next) return fail(next.error);
 
       const result = await RecipeService.updateRecipe(createAdminClient(), recipe.id, next, {
@@ -329,7 +359,11 @@ export function registerRecipeTools(server: McpServer) {
         summary,
       });
       if (!result.success || !result.data) return fail(result.error || 'Saving failed');
-      return text({ saved: true, note: 'Live on the site now; the previous version is in the recipe History.', recipe: forChat(result.data, siteUrl(ctx.http?.req)) });
+      return text({
+        saved: true,
+        note: `${STATUS_NOTE[result.data.status]} The previous version is in the recipe History.`,
+        recipe: forChat(result.data, siteUrl(ctx.http?.req)),
+      });
     }
   );
 
@@ -337,7 +371,7 @@ export function registerRecipeTools(server: McpServer) {
     'create_recipe',
     {
       title: 'Create a recipe',
-      description: 'Add a new recipe. It goes live on the site straight away, without a photo (add one in the admin).',
+      description: 'Add a new recipe as a draft (not on the site). Publish it with set_recipe_status when asked; add a photo in the admin.',
       inputSchema: z.object({
         title: z.string().min(1),
         ...recipeFields,
@@ -367,18 +401,84 @@ export function registerRecipeTools(server: McpServer) {
         method_groups: [],
         serving_suggestions: '',
         tips: '',
+        status: 'draft',
         course_category_ids: [],
         cuisine_category_ids: [],
         dietary_category_ids: [],
         accompanying_recipe_ids: [],
       };
       if (!blank.uid) return fail('The title needs some letters or numbers');
-      const data = await applyChanges(blank, input);
+      const data = await applyChanges(blank, input, { client: reader(ctx.http?.authInfo?.token) });
       if ('error' in data) return fail(data.error);
 
       const result = await RecipeService.createRecipe(createAdminClient(), data);
       if (!result.success || !result.data) return fail(result.error || 'Saving failed');
-      return text({ created: true, note: 'Live on the site now, without a photo.', recipe: forChat(result.data, siteUrl(ctx.http?.req)) });
+      return text({
+        created: true,
+        note: 'Saved as a draft: not on the site yet. Publish it with set_recipe_status when asked. It has no photo yet.',
+        recipe: forChat(result.data, siteUrl(ctx.http?.req)),
+      });
+    }
+  );
+
+  server.registerTool(
+    'set_recipe_status',
+    {
+      title: 'Publish, unpublish or archive a recipe',
+      description:
+        'published puts a recipe on the site; draft takes it off to keep working on it; archived takes it off the site but keeps it (publish again any time). Recorded in the recipe History.',
+      inputSchema: z.object({
+        recipe: z.string().describe('The recipe uid, id or page link'),
+        status: z.enum(['draft', 'published', 'archived']),
+      }),
+      annotations: writes,
+      _meta,
+    },
+    async ({ recipe: ref, status }, ctx) => {
+      const user = mcpUser(ctx.http?.authInfo);
+      if (!user) return fail('Not signed in');
+      const recipe = await findRecipe(ref, reader(ctx.http?.authInfo?.token));
+      if (!recipe) return fail(`No recipe "${ref}". Use search_recipes to find it.`);
+      if (recipe.status === status) return text({ unchanged: true, note: STATUS_NOTE[status], uid: recipe.uid });
+
+      const data: RecipeFormData = { ...recipeToFormData(recipe), status };
+      // A draft's first publish dates it today, so it leads "Fresh off the chopping board"
+      if (status === 'published' && recipe.status === 'draft') data.published_at = new Date().toISOString();
+
+      const summary = { published: 'Published', draft: 'Moved back to draft', archived: 'Archived' }[status];
+      const result = await RecipeService.updateRecipe(createAdminClient(), recipe.id, data, {
+        source: user.source,
+        userId: user.userId,
+        summary,
+      });
+      if (!result.success || !result.data) return fail(result.error || 'Saving failed');
+      return text({ saved: true, note: STATUS_NOTE[status], title: result.data.title, url: `${siteUrl(ctx.http?.req)}/${result.data.uid}` });
+    }
+  );
+
+  server.registerTool(
+    'delete_recipe',
+    {
+      title: 'Move a recipe to the Trash',
+      description: `Takes a recipe off the site and moves it to the Trash, where it can be restored in the admin for ${TRASH_DAYS} days before it's deleted for good. Only when the person asks to delete; to just take it off the site, archive it instead.`,
+      inputSchema: z.object({ recipe: z.string().describe('The recipe uid, id or page link') }),
+      annotations: destructive,
+      _meta,
+    },
+    async ({ recipe: ref }, ctx) => {
+      const user = mcpUser(ctx.http?.authInfo);
+      if (!user) return fail('Not signed in');
+      const recipe = await findRecipe(ref, reader(ctx.http?.authInfo?.token));
+      if (!recipe) return fail(`No recipe "${ref}". Use search_recipes to find it.`);
+
+      const admin = createAdminClient();
+      const result = await RecipeService.deleteRecipe(admin, recipe.id);
+      if (!result.success) return fail(result.error || 'Deleting failed');
+      await TrashService.purgeExpired(admin);
+      return text({
+        deleted: true,
+        note: `"${recipe.title}" is in the Trash. It can be restored from Trash in the admin for ${TRASH_DAYS} days.`,
+      });
     }
   );
 }

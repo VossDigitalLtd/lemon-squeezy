@@ -10,6 +10,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .from('recipes')
     .select('uid, updated_at')
     .is('deleted_at', null)
+    .eq('status', 'published')
     .order('updated_at', { ascending: false });
 
   const recipeEntries: MetadataRoute.Sitemap = (recipes || []).map((r) => ({
