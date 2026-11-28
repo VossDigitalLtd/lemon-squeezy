@@ -58,7 +58,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <AdminProvider>
-      <div className="admin-layout flex w-screen h-screen bg-background">
+      {/* overflow-hidden: only the content area scrolls, never the window */}
+      <div className="admin-layout flex w-screen h-screen overflow-hidden bg-background">
         <AdminHeader onMenuClick={() => setShowMobileNav(true)} />
         <AdminSidebar
           isExpanded={sidebarExpanded}
@@ -69,7 +70,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           onLogout={logout}
         />
         <main className="flex-1 flex flex-col h-full md:h-screen pt-14 md:pt-0 min-w-0">
-          <section className="flex-1 overflow-auto min-h-0 min-w-0">{children}</section>
+          {/* relative: absolutely positioned bits (e.g. the hidden native select behind each dropdown)
+              stay inside this scrolling area instead of stretching the whole page */}
+          <section className="relative flex-1 overflow-auto min-h-0 min-w-0">{children}</section>
         </main>
       </div>
 

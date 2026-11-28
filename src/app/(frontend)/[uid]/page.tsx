@@ -13,8 +13,8 @@ import { CookModeButton } from '@/components/recipe/CookModeButton';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { RecipeViewTracker } from '@/components/recipe/RecipeViewTracker';
 import { LogoTimer, LogoRays, LaceBand } from '@/components/brand';
-import { formatMinutesLong } from '@/lib/time';
-import { restHeading, timeSequence } from '@/lib/rest';
+import { formatMinutesLong, formatMinutesShort } from '@/lib/time';
+import { restHeading, restNoun, timeSequence, type TimeStage } from '@/lib/rest';
 import { cn } from '@/utils/cn';
 import type { Metadata } from 'next';
 import type { Recipe } from '@/types/recipe';
@@ -145,25 +145,8 @@ export default async function RecipePage({ params }: PageProps) {
             )}
 
             {/* Facts */}
-            <div className="mt-8 flex flex-wrap gap-x-9 gap-y-5 border-y border-border py-6">
-              {/* Times in cooking order: prep, rests before cooking, cook, rests after */}
-              {timeStages.map((stage, i) => (
-                <span key={i} className="flex items-center gap-x-3">
-                  {i > 0 && <ChevronRight size={18} className="-ml-4 text-muted-foreground" aria-hidden="true" />}
-                  <Fact
-                    icon={<LogoTimer minutes={stage.minutes} label="" className="size-15" />}
-                    label={stage.kind === 'prep' ? 'Prep time' : stage.kind === 'cook' ? 'Cook time' : restHeading(stage.period)}
-                  >
-                    {formatMinutesLong(stage.minutes)}
-                  </Fact>
-                </span>
-              ))}
-              {/* Total, once there's more than one time to add up */}
-              {timeStages.length > 1 && recipe.total_time != null && (
-                <Fact icon={<LogoTimer minutes={recipe.total_time} label="" className="size-15" />} label="Total time">
-                  {formatMinutesLong(recipe.total_time)}
-                </Fact>
-              )}
+            <div className="mt-8 flex flex-wrap items-center gap-x-10 gap-y-5 border-y border-border py-6">
+              <RecipeTimes stages={timeStages} total={recipe.total_time} />
               {recipe.servings != null && (
                 <Fact icon={<Users size={30} strokeWidth={1.6} />} label="Serves">
                   {recipe.servings}
@@ -248,6 +231,53 @@ export default async function RecipePage({ params }: PageProps) {
 
       <RecipeJsonLd recipe={recipe} imageUrl={imageUrl} />
     </>
+  );
+}
+
+/** What a time stage is called: "Prep", "Marinating", "Cook" */
+function stageName(stage: TimeStage): string {
+  return stage.kind === 'prep' ? 'Prep' : stage.kind === 'cook' ? 'Cook' : restNoun(stage.period);
+}
+
+/**
+ * The recipe's times. One time shows on its own ("Cook time · 20 minutes").
+ * Several show as the total, with the stages in cooking order beneath it:
+ * "Prep 10 min › Marinating 1 hr › Cook 4 hr". Each arrow stays at the end
+ * of its stage, so a wrapped line never starts with one.
+ */
+function RecipeTimes({ stages, total }: { stages: TimeStage[]; total: number | null }) {
+  if (stages.length === 0) return null;
+  if (stages.length === 1 || total == null) {
+    const [stage] = stages;
+    return (
+      <Fact
+        icon={<LogoTimer minutes={stage.minutes} label="" className="size-15" />}
+        label={stage.kind === 'rest' ? restHeading(stage.period) : `${stageName(stage)} time`}
+      >
+        {formatMinutesLong(stage.minutes)}
+      </Fact>
+    );
+  }
+  return (
+    <div className="flex basis-full items-center gap-3 sm:basis-auto">
+      <span className="grid size-15 flex-shrink-0 place-items-center">
+        <LogoTimer minutes={total} label="" className="size-15" />
+      </span>
+      <div className="min-w-0">
+        <p className="font-display text-[1.1875rem] leading-tight">Total time</p>
+        <p className="tabular-nums">{formatMinutesLong(total)}</p>
+        <ol className="mt-1 flex flex-wrap gap-x-1.5 text-sm text-muted-foreground" aria-label="Time in cooking order">
+          {stages.map((stage, i) => (
+            <li key={i} className="flex items-center gap-1.5 whitespace-nowrap tabular-nums">
+              <span>
+                {stageName(stage)} <span className="font-medium text-foreground">{formatMinutesShort(stage.minutes)}</span>
+              </span>
+              {i < stages.length - 1 && <ChevronRight size={14} aria-hidden="true" />}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
   );
 }
 
