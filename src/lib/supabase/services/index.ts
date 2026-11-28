@@ -10,3 +10,5 @@ export { MealPlanService } from './MealPlanService';
 export { IngredientService } from './IngredientService';
 export { TrashService } from './TrashService';
 export { RevisionService } from './RevisionService';
+export { SettingsService, DEFAULT_SITE_SETTINGS } from './SettingsService';
+export type { SiteSettings } from './SettingsService';

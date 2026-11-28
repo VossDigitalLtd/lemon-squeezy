@@ -1,7 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Monitor, Moon, Sun, Type } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/lib/toast/context';
+import type { SiteSettings } from '@/lib/supabase/services/SettingsService';
 import { cn } from '@/utils/cn';
 import { useAppearanceSettings, type Theme, type FontSize } from '@/hooks/useAppearanceSettings';
 
@@ -85,6 +89,65 @@ function AppearanceSettings() {
   );
 }
 
+// ── Site tab ──────────────────────────────────────────────────────────────────
+
+function SiteSettingsPanel() {
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    fetch('/api/admin/settings', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((json) => setSettings(json.data))
+      .catch(() => addToast('Could not load the site settings', 'error'));
+  }, [addToast]);
+
+  async function save(changes: Partial<SiteSettings>, message: string) {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(changes),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setSettings(json.data);
+      addToast(message, 'success');
+    } catch {
+      addToast('Could not save the setting', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!settings) return <div className="h-12 bg-muted animate-pulse rounded-md" />;
+
+  return (
+    <div className="space-y-6">
+      <label className="flex items-start justify-between gap-6">
+        <span>
+          <span className="block text-sm font-medium text-foreground">Show recipe inspiration</span>
+          <span className="mt-1 block text-xs text-muted-foreground">
+            Shows each recipe&rsquo;s sources, from the Recipe inspiration field, as a &ldquo;Recipe inspiration&rdquo; section after
+            the tips on recipe and print pages. Switched off, the section is hidden on every recipe, but the sources are kept and
+            can still be edited.
+          </span>
+        </span>
+        <Switch
+          checked={settings.show_recipe_inspiration}
+          disabled={saving}
+          onCheckedChange={(checked) =>
+            save({ show_recipe_inspiration: checked }, checked ? 'Recipe inspiration shown on the site' : 'Recipe inspiration hidden on the site')
+          }
+          aria-label="Show recipe inspiration on the site"
+        />
+      </label>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -92,13 +155,22 @@ export default function SettingsPage() {
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your preferences.</p>
+        <p className="text-muted-foreground mt-1">Settings for the whole site, and your own preferences.</p>
       </div>
 
-      <Tabs defaultValue="appearance">
+      <Tabs defaultValue="site">
         <TabsList className="mb-6">
+          <TabsTrigger value="site">Site</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="site">
+          <div className="bg-card rounded-xl border border-border shadow-card p-6">
+            <h2 className="text-sm font-medium text-foreground mb-1">Site</h2>
+            <p className="text-xs text-muted-foreground mb-6">These apply to everyone visiting Lemon Squeezy.</p>
+            <SiteSettingsPanel />
+          </div>
+        </TabsContent>
 
         <TabsContent value="appearance">
           <div className="bg-card rounded-xl border border-border shadow-card p-6">

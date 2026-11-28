@@ -25,6 +25,7 @@ export const MCP_INSTRUCTIONS = `Lemon Squeezy is a UK recipe website. These too
 - Write in UK English with metric amounts (g, ml, tsp, tbsp). The site converts to imperial and scales servings itself, including amounts written in method steps (e.g. "Add 500ml of stock"), so write steps for the recipe's own servings.
 - Ingredients: quantity is a number (0.5, not "½"), unit is one of the listed units or null for plain counts ("3 eggs" is quantity 3, unit null, name "eggs"), name is the ingredient ("sage"), note is preparation ("finely chopped"). "8 sage leaves" is quantity 8, unit "leaf", name "sage".
 - Times are in minutes: prep_time, cook_time, and rest_periods for other waiting (marinating, proving or chilling before cooking; resting, setting or cooling after). Each rest says when it happens: "before" or "after" cooking. The site shows them in cooking order and adds them to the total time.
+- inspiration credits the original recipes a recipe follows or adapts. Write each source as a link, [Source name](https://…), one per line, e.g. "Adapted from [Ottolenghi's lemon chicken](https://…)". Only add a source the person gives you or confirms; never invent links.
 - Describe each change in update_recipe's summary, in a few words; it's shown in the History.
 - New recipes from create_recipe are drafts. Publish one with set_recipe_status only when asked to; archive takes a recipe off the site without deleting it.
 - delete_recipe moves a recipe to the Trash, where it can be restored in the admin for ${TRASH_DAYS} days; prefer archiving unless the person wants it deleted.
@@ -76,6 +77,12 @@ const recipeFields = {
   calories_per_serving: z.number().int().min(0).nullable().optional(),
   serving_suggestions: z.string().optional(),
   tips: z.string().optional(),
+  inspiration: z
+    .string()
+    .optional()
+    .describe(
+      'Credits for the original recipes this one follows or adapts, shown as "Recipe inspiration" after the tips (unless hidden site-wide in the admin). Write links as [Source name](https://…); one line per source. "" removes it.'
+    ),
   categories: categoriesSchema.optional(),
   accompanying_recipes: accompanyingSchema.optional(),
 };
@@ -92,6 +99,7 @@ type RecipeChanges = {
   calories_per_serving?: number | null;
   serving_suggestions?: string;
   tips?: string;
+  inspiration?: string;
   ingredient_groups?: z.infer<typeof ingredientGroupsSchema>;
   method_groups?: z.infer<typeof methodGroupsSchema>;
   categories?: z.infer<typeof categoriesSchema>;
@@ -164,6 +172,7 @@ function forChat(recipe: Recipe, origin: string) {
     method_groups: recipe.method_groups.map((g) => ({ group_title: g.group_title, steps: g.items })),
     serving_suggestions: recipe.serving_suggestions,
     tips: recipe.tips,
+    inspiration: recipe.inspiration,
     categories: {
       course: recipe.course_categories.map((c) => c.title),
       cuisine: recipe.cuisine_categories.map((c) => c.title),
@@ -250,7 +259,7 @@ export async function applyChanges(
   { selfId, client }: { selfId?: string; client?: SupabaseClient } = {}
 ): Promise<RecipeFormData | { error: string }> {
   const next: RecipeFormData = { ...data };
-  for (const key of ['title', 'subtitle', 'short_description', 'full_description', 'serving_suggestions', 'tips'] as const) {
+  for (const key of ['title', 'subtitle', 'short_description', 'full_description', 'serving_suggestions', 'tips', 'inspiration'] as const) {
     if (changes[key] !== undefined) next[key] = changes[key]!.trim();
   }
   for (const key of ['servings', 'prep_time', 'cook_time', 'calories_per_serving'] as const) {
@@ -424,6 +433,7 @@ export function registerRecipeTools(server: McpServer) {
         method_groups: [],
         serving_suggestions: '',
         tips: '',
+        inspiration: '',
         status: 'draft',
         course_category_ids: [],
         cuisine_category_ids: [],

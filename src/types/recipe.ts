@@ -96,6 +96,8 @@ export interface Recipe {
   method_links: MethodLinks;
   serving_suggestions: string;
   tips: string;
+  /** Credits for the original recipes, with [name](https://…) links; '' hides the section */
+  inspiration: string;
   status: RecipeStatus;
   published_at: string;
   course_categories: Category[];
@@ -154,6 +156,8 @@ export interface RecipeFormData {
   method_links?: MethodLinks;
   serving_suggestions: string;
   tips: string;
+  /** Credits for the original recipes, with [name](https://…) links; '' hides the section */
+  inspiration: string;
   /** Omitted: unchanged on save (published for a new recipe) */
   status?: RecipeStatus;
   published_at?: string;

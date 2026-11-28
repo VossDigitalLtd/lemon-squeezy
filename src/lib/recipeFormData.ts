@@ -25,6 +25,7 @@ export function recipeToFormData(recipe: Recipe): RecipeFormData {
     method_links: recipe.method_links,
     serving_suggestions: recipe.serving_suggestions,
     tips: recipe.tips,
+    inspiration: recipe.inspiration,
     status: recipe.status,
     published_at: recipe.published_at || undefined,
     course_category_ids: recipe.course_categories.map((c) => c.id),

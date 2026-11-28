@@ -32,6 +32,42 @@ export function textToHtml(text: string): string {
     .join('');
 }
 
+const LINK_RE = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"]+)/g;
+
+function anchor(href: string, label: string): string {
+  return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener nofollow">${escapeHtml(label)}</a>`;
+}
+
+/**
+ * Like textToHtml, with links: [Source name](https://…) becomes a link
+ * named "Source name", and a bare https:// address is linked as it is.
+ * Only http(s) addresses are linked; everything else stays plain text.
+ */
+export function linkedTextToHtml(text: string): string {
+  if (!text) return '';
+  return text
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => {
+      let html = '';
+      let last = 0;
+      for (const m of line.matchAll(LINK_RE)) {
+        html += escapeHtml(line.slice(last, m.index));
+        if (m[2]) {
+          html += anchor(m[2], m[1].trim());
+          last = m.index! + m[0].length;
+        } else {
+          // Leave trailing punctuation out of a bare address: "see https://x.com/a."
+          const url = m[3].replace(/[.,;:!?)]+$/, '');
+          html += anchor(url, url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''));
+          last = m.index! + url.length;
+        }
+      }
+      return `<p>${html}${escapeHtml(line.slice(last))}</p>`;
+    })
+    .join('');
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

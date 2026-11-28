@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
-import { RecipeService } from '@/lib/supabase/services';
+import { RecipeService, SettingsService } from '@/lib/supabase/services';
 import { LogoMark, LogoTimer, LaceBand } from '@/components/brand';
-import { getImageUrl, textToHtml, imageFocus } from '@/lib/recipes';
+import { getImageUrl, textToHtml, linkedTextToHtml, imageFocus } from '@/lib/recipes';
 import { displayIngredient, formatAmount, ingredientLabel } from '@/lib/units';
 import { scaleStepAmounts } from '@/lib/methodAmounts';
 import { formatMinutesLong, formatMinutesShort } from '@/lib/time';
@@ -29,9 +29,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  */
 export default async function PrintRecipePage({ params, searchParams }: PageProps) {
   const [{ uid }, query] = await Promise.all([params, searchParams]);
-  const result = await RecipeService.getByUid(await createClient(), uid);
+  const supabase = await createClient();
+  const [result, settings] = await Promise.all([RecipeService.getByUid(supabase, uid), SettingsService.get(supabase)]);
   if (!result.success || !result.data) notFound();
   const recipe = result.data;
+  // Shown unless hidden site-wide in the admin (Settings → Site)
+  const inspiration = settings.show_recipe_inspiration ? recipe.inspiration.trim() : '';
 
   const base = recipe.servings || 1;
   const requested = parseInt(String(query.servings ?? ''), 10);
@@ -149,7 +152,7 @@ export default async function PrintRecipePage({ params, searchParams }: PageProp
               </div>
             ))}
 
-            {(recipe.tips || recipe.serving_suggestions) && (
+            {(recipe.tips || recipe.serving_suggestions || inspiration) && (
               <div className="mt-5 grid gap-3 border-t border-[#e5e5e5] pt-4 text-[11.5px] leading-relaxed">
                 {recipe.serving_suggestions && (
                   <div className="break-inside-avoid">
@@ -161,6 +164,15 @@ export default async function PrintRecipePage({ params, searchParams }: PageProp
                   <div className="break-inside-avoid">
                     <h3 className="font-display text-[14px]">Tips</h3>
                     <div className="mt-1 grid gap-1.5" dangerouslySetInnerHTML={{ __html: textToHtml(recipe.tips) }} />
+                  </div>
+                )}
+                {inspiration && (
+                  <div className="break-inside-avoid">
+                    <h3 className="font-display text-[14px]">Recipe inspiration</h3>
+                    <div
+                      className="mt-1 grid gap-1.5 [&_a]:underline"
+                      dangerouslySetInnerHTML={{ __html: linkedTextToHtml(inspiration) }}
+                    />
                   </div>
                 )}
               </div>

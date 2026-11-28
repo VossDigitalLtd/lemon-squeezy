@@ -27,6 +27,7 @@ const recipe: RecipeFormData = {
   method_links: { phrases: [{ phrase: 'Add 500ml of chicken stock', ingredient_ids: ['stock-id'] }], not_in_method: [] },
   serving_suggestions: '',
   tips: '',
+  inspiration: '',
   course_category_ids: ['main'],
   cuisine_category_ids: [],
   dietary_category_ids: [],

@@ -36,7 +36,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/lib/toast/context';
 import { UNITS_BY_TYPE, type UnitKey } from '@/lib/units';
-import { getImageUrl } from '@/lib/recipes';
+import { getImageUrl, linkedTextToHtml } from '@/lib/recipes';
 import { RestPeriodsEditor } from './RestPeriodsEditor';
 import { totalRest } from '@/lib/rest';
 import { formatMinutesLong } from '@/lib/time';
@@ -91,6 +91,7 @@ function emptyFormData(): RecipeFormData {
     method_links: EMPTY_METHOD_LINKS,
     serving_suggestions: '',
     tips: '',
+    inspiration: '',
     status: 'published',
     course_category_ids: [],
     cuisine_category_ids: [],
@@ -803,6 +804,9 @@ export default function RecipeForm({ recipe, categories }: RecipeFormProps) {
             rows={3}
           />
         </Field>
+        <Field label="Recipe inspiration">
+          <InspirationEditor value={form.inspiration} onChange={(value) => updateField('inspiration', value)} />
+        </Field>
       </Section>
 
       {/* ── Publishing ── */}
@@ -901,6 +905,68 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="bg-card rounded-xl border border-border shadow-card p-6">
       <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
       <div className="space-y-4">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Credits for the original recipes. Stored as text with [name](https://…)
+ * links, which "Add link" writes for you; the preview shows the result.
+ */
+function InspirationEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [name, setName] = useState('');
+  const [url, setUrl] = useState('');
+  const link = url.trim().match(/^https?:\/\//) ? url.trim() : url.trim() ? `https://${url.trim()}` : '';
+
+  function addLink() {
+    if (!link) return;
+    const line = `[${name.trim() || link.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}](${link})`;
+    onChange(value.trim() ? `${value.trimEnd()}\n${line}` : line);
+    setName('');
+    setUrl('');
+  }
+
+  return (
+    <div className="space-y-2">
+      <Textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Adapted from [Lemon chicken by Ottolenghi](https://…)"
+        rows={3}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Source name, e.g. BBC Good Food" className="h-8 flex-1 min-w-40 text-sm" />
+        <Input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addLink();
+            }
+          }}
+          placeholder="Link, e.g. https://www.bbcgoodfood.com/…"
+          className="h-8 flex-[2] min-w-48 text-sm"
+        />
+        <Button type="button" variant="outline" size="sm" onClick={addLink} disabled={!link}>
+          <Plus size={14} className="mr-1" />
+          Add link
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Optional. Credits the recipes this one follows or adapts, shown as &ldquo;Recipe inspiration&rdquo; after the tips; left
+        empty, the section is hidden. It can be hidden on every recipe in Settings → Site. Links are written [name](link): use
+        Add link, or paste an address on its own.
+      </p>
+      {value.trim() && (
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+          <p className="mb-1 text-xs text-muted-foreground">Preview</p>
+          <div
+            className="space-y-1 [&_a]:underline [&_a]:decoration-primary [&_a]:decoration-2 [&_a]:underline-offset-2"
+            dangerouslySetInnerHTML={{ __html: linkedTextToHtml(value) }}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -44,7 +44,7 @@ const RECIPE_FULL_SELECT = `
   feature_image_path, feature_image_alt, feature_image_focus_x, feature_image_focus_y,
   prep_time, cook_time, rest_time, rest_periods, total_time, servings, calories_per_serving,
   ingredient_groups, method_groups, method_links,
-  serving_suggestions, tips,
+  serving_suggestions, tips, inspiration,
   status, published_at,
   created_at, updated_at,
   recipe_categories(category:categories(id, type, uid, title, page_label, deleted_at)),
@@ -78,6 +78,7 @@ export interface RawRecipeRow {
   method_links?: unknown;
   serving_suggestions?: string;
   tips?: string;
+  inspiration?: string;
   published_at?: string;
   created_at?: string;
   updated_at?: string;
@@ -156,6 +157,7 @@ export function toRecipe(row: RawRecipeRow): Recipe {
     method_links: cleanMethodLinks(row.method_links),
     serving_suggestions: row.serving_suggestions || '',
     tips: row.tips || '',
+    inspiration: row.inspiration || '',
     status: row.status ?? 'published',
     published_at: row.published_at || row.created_at || '',
     created_at: row.created_at || '',

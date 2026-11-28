@@ -4,8 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowDown, ChevronRight, Flame, Printer, Users } from 'lucide-react';
 import { createClient, getUserId } from '@/lib/supabase/server';
-import { RecipeService, FavouriteService } from '@/lib/supabase/services';
-import { getImageUrl, textToHtml, imageFocus, categoryLabel } from '@/lib/recipes';
+import { RecipeService, FavouriteService, SettingsService } from '@/lib/supabase/services';
+import { getImageUrl, textToHtml, linkedTextToHtml, imageFocus, categoryLabel } from '@/lib/recipes';
 import { formatIngredient } from '@/lib/units';
 import RecipeContentClient from './RecipeContentClient';
 import { FavouriteButton } from '@/components/recipe/FavouriteButton';
@@ -55,9 +55,10 @@ export default async function RecipePage({ params }: PageProps) {
   const supabase = await createClient();
   // The user id is checked locally, so the recipe and the favourites load side by side
   const userId = await getUserId(supabase);
-  const [result, favouriteIdsResult] = await Promise.all([
+  const [result, favouriteIdsResult, settings] = await Promise.all([
     getRecipe(uid),
     userId ? FavouriteService.getUserFavouriteIds(supabase, userId) : null,
+    SettingsService.get(supabase),
   ]);
 
   if (!result.success || !result.data) {
@@ -210,13 +211,15 @@ export default async function RecipePage({ params }: PageProps) {
           )}
         </header>
 
-        {/* Ingredients + method, with tips and serving suggestions under the method */}
+        {/* Ingredients + method, with serving suggestions, tips and recipe inspiration under the method */}
         <div className="pt-16">
           <RecipeContentClient recipe={recipe}>
             {recipe.serving_suggestions && (
               <Note title="Serving suggestions" html={textToHtml(recipe.serving_suggestions)} />
             )}
             {recipe.tips && <Note title="Tips" html={textToHtml(recipe.tips)} />}
+            {/* Hidden site-wide when switched off in the admin (Settings → Site) */}
+            {settings.show_recipe_inspiration && recipe.inspiration.trim() && <Note title="Recipe inspiration" html={linkedTextToHtml(recipe.inspiration)} />}
           </RecipeContentClient>
         </div>
       </article>
@@ -269,7 +272,9 @@ function Note({ title, html }: { title: string; html: string }) {
       </svg>
       <div className="min-w-0">
         <h2 className="font-display text-2xl leading-tight">{title}</h2>
-        <div className="mt-2 space-y-3 text-[1.0625rem]" dangerouslySetInnerHTML={{ __html: html }} />
+        <div
+          className="mt-2 space-y-3 text-[1.0625rem] [&_a]:underline [&_a]:decoration-primary [&_a]:decoration-2 [&_a]:underline-offset-4 [&_a:hover]:decoration-foreground"
+          dangerouslySetInnerHTML={{ __html: html }} />
       </div>
     </aside>
   );
