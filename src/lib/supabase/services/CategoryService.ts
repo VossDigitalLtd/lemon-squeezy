@@ -25,13 +25,14 @@ interface CategoryInput {
 /** Editable fields on an existing category */
 export interface CategoryUpdate {
   title?: string;
+  page_label?: string | null;
   image_path?: string | null;
   image_alt?: string | null;
   show_on_home?: boolean;
   sort_order?: number;
 }
 
-const CATEGORY_SELECT = 'id, type, uid, title, image_path, image_alt, show_on_home, sort_order';
+const CATEGORY_SELECT = 'id, type, uid, title, page_label, image_path, image_alt, show_on_home, sort_order';
 
 class CategoryServiceClass extends BaseQueryService {
   constructor() {
@@ -190,6 +191,7 @@ class CategoryServiceClass extends BaseQueryService {
     try {
       const patch: CategoryUpdate = { ...updates };
       if (patch.title !== undefined) patch.title = patch.title.trim();
+      if (patch.page_label !== undefined) patch.page_label = patch.page_label?.trim() || null;
 
       const { data, error } = await supabase
         .from('categories')

@@ -11,6 +11,8 @@ export interface Category {
   type: CategoryType;
   uid: string;
   title: string;
+  /** Optional name for recipe-page labels, e.g. "From a Cypriot kitchen"; empty uses title */
+  page_label?: string | null;
   /** Storage path in recipe-images. Only loaded where needed (admin, homepage rail). */
   image_path?: string | null;
   image_alt?: string | null;

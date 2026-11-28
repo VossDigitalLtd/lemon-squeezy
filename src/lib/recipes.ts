@@ -50,3 +50,8 @@ export function splitSubtitle(title: string): [string, string] | null {
   const match = title.match(/^(.*\S)\s*\(([^()]+)\)\s*$/);
   return match ? [match[1].trim(), match[2].trim()] : null;
 }
+
+/** A category's name on recipe pages: its page label if it has one, else its ordinary name */
+export function categoryLabel(category: { title: string; page_label?: string | null }): string {
+  return category.page_label?.trim() || category.title;
+}

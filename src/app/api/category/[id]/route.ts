@@ -13,6 +13,10 @@ function parseUpdate(body: Record<string, unknown>): CategoryUpdate | string {
     if (typeof body.title !== 'string' || !body.title.trim()) return 'Title is required';
     update.title = body.title;
   }
+  if ('page_label' in body) {
+    if (body.page_label !== null && typeof body.page_label !== 'string') return 'page_label must be a string or null';
+    update.page_label = (body.page_label as string | null)?.trim() || null;
+  }
   if ('image_path' in body) {
     if (body.image_path !== null && typeof body.image_path !== 'string') return 'image_path must be a string or null';
     update.image_path = body.image_path || null;
@@ -34,7 +38,7 @@ function parseUpdate(body: Record<string, unknown>): CategoryUpdate | string {
   return update;
 }
 
-/** PUT /api/category/[id] — update a category's title, photo or homepage settings */
+/** PUT /api/category/[id] — update a category's names, photo or homepage settings */
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

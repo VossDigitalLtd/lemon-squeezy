@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowDown, ChevronRight, Flame, Printer, Users } from 'lucide-react';
 import { createClient, getUserId } from '@/lib/supabase/server';
 import { RecipeService, FavouriteService } from '@/lib/supabase/services';
-import { getImageUrl, textToHtml, imageFocus } from '@/lib/recipes';
+import { getImageUrl, textToHtml, imageFocus, categoryLabel } from '@/lib/recipes';
 import { formatIngredient } from '@/lib/units';
 import RecipeContentClient from './RecipeContentClient';
 import { FavouriteButton } from '@/components/recipe/FavouriteButton';
@@ -13,8 +13,8 @@ import { CookModeButton } from '@/components/recipe/CookModeButton';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { RecipeViewTracker } from '@/components/recipe/RecipeViewTracker';
 import { LogoTimer, LogoRays, LaceBand } from '@/components/brand';
-import { formatMinutesLong, formatMinutesShort } from '@/lib/time';
-import { restHeading, describeRests, timeSequence } from '@/lib/rest';
+import { formatMinutesLong } from '@/lib/time';
+import { restHeading, timeSequence } from '@/lib/rest';
 import { cn } from '@/utils/cn';
 import type { Metadata } from 'next';
 import type { Recipe } from '@/types/recipe';
@@ -72,6 +72,7 @@ export default async function RecipePage({ params }: PageProps) {
     ...recipe.dietary_categories,
   ];
   const course = recipe.course_categories[0];
+  const timeStages = timeSequence(recipe.prep_time, recipe.cook_time, recipe.rest_periods);
   // Staff can open unpublished recipes; visitors only ever get published ones
   const pairs = recipe.accompanying_recipes.filter((r) => r.status === 'published');
 
@@ -133,10 +134,10 @@ export default async function RecipePage({ params }: PageProps) {
                     href={`/recipes?${cat.type}=${cat.uid}`}
                     className={cn(
                       'rounded-full border px-3 py-0.5 text-[0.8125rem] transition-colors hover:border-foreground',
-                      cat.uid === 'cypriot' ? 'border-lace bg-brand-muted' : 'border-border'
+                      cat.page_label ? 'border-lace bg-brand-muted' : 'border-border'
                     )}
                   >
-                    {cat.uid === 'cypriot' ? 'From a Cypriot kitchen' : cat.title}
+                    {categoryLabel(cat)}
                   </Link>
                 ))}
               </div>
@@ -145,7 +146,7 @@ export default async function RecipePage({ params }: PageProps) {
             {/* Facts */}
             <div className="mt-8 flex flex-wrap gap-x-9 gap-y-5 border-y border-border py-6">
               {/* Times in cooking order: prep, rests before cooking, cook, rests after */}
-              {timeSequence(recipe.prep_time, recipe.cook_time, recipe.rest_periods).map((stage, i) => (
+              {timeStages.map((stage, i) => (
                 <span key={i} className="flex items-center gap-x-3">
                   {i > 0 && <ChevronRight size={18} className="-ml-4 text-muted-foreground" aria-hidden="true" />}
                   <Fact
@@ -156,6 +157,12 @@ export default async function RecipePage({ params }: PageProps) {
                   </Fact>
                 </span>
               ))}
+              {/* Total, once there's more than one time to add up */}
+              {timeStages.length > 1 && recipe.total_time != null && (
+                <Fact icon={<LogoTimer minutes={recipe.total_time} label="" className="size-15" />} label="Total time">
+                  {formatMinutesLong(recipe.total_time)}
+                </Fact>
+              )}
               {recipe.servings != null && (
                 <Fact icon={<Users size={30} strokeWidth={1.6} />} label="Serves">
                   {recipe.servings}
@@ -167,13 +174,6 @@ export default async function RecipePage({ params }: PageProps) {
                 </Fact>
               )}
             </div>
-
-            {recipe.rest_periods.length > 0 && recipe.total_time != null && (
-              <p className="mt-4 text-[0.9375rem]">
-                <strong className="font-semibold">Ready in {formatMinutesLong(recipe.total_time)}</strong>
-                <span className="text-muted-foreground">, including {describeRests(recipe.rest_periods, formatMinutesShort)}.</span>
-              </p>
-            )}
 
             <div className="mt-6 flex flex-wrap gap-2.5">
               <a

@@ -8,7 +8,7 @@ import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { FavouriteHeart } from '@/components/recipe/FavouriteHeart';
 import { FavouriteButton } from '@/components/recipe/FavouriteButton';
 import { ShuffleBand, type ShuffleRecipe } from '@/components/home/ShuffleBand';
-import { getImageUrl, imageFocus } from '@/lib/recipes';
+import { getImageUrl, imageFocus, categoryLabel } from '@/lib/recipes';
 import { bucketByTime, formatMinutesLong, formatMinutesShort } from '@/lib/time';
 import { APP_NAME, APP_DESCRIPTION, features } from '@/lib/config/app';
 import type { Metadata } from 'next';
@@ -51,6 +51,8 @@ export default async function HomePage() {
   const latest = recipes.filter((r) => r.feature_image_path && r.id !== featured?.id).slice(0, 5);
   const buckets = bucketByTime(recipes);
   const cypriotLead = cypriot.find((r) => r.feature_image_path);
+  const cypriotCategory = cypriotLead?.cuisine_categories.find((c) => c.uid === 'cypriot');
+  const cypriotLabel = cypriotCategory ? categoryLabel(cypriotCategory) : 'Cypriot';
   const cypriotRest = cypriot.filter((r) => r.id !== cypriotLead?.id).slice(0, 4);
 
   const heart = (r: RecipeSummary) => (
@@ -282,7 +284,7 @@ export default async function HomePage() {
               </span>
             </Link>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em]">From a Cypriot kitchen</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em]">{cypriotLabel}</p>
               <h2 id="kop-title" className="mt-3 font-display text-[clamp(3rem,7vw,5rem)] leading-[0.95]">Kopiaste!</h2>
               <p className="mt-2 font-display text-[1.375rem] italic text-muted-foreground">
                 Κοπιάστε · come in, sit down, eat with us

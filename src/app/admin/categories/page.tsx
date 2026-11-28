@@ -83,6 +83,12 @@ export default function AdminCategoriesPage() {
           Switch on <strong>Homepage</strong> to show a category in the homepage rail; lower
           order numbers come first. Categories without a photo use their newest recipe photo.
         </p>
+        <p className="text-sm text-muted-foreground mt-2">
+          A category can also have a <strong>name on recipe pages</strong>, such as &ldquo;From a Cypriot kitchen&rdquo; for
+          Cypriot. It replaces the name on the recipe page&rsquo;s category labels, where it&rsquo;s highlighted, and on
+          the Cypriot section of the homepage. Menus, filters and recipe cards keep the ordinary name. Leave it empty to
+          use the ordinary name everywhere.
+        </p>
       </div>
 
       <Tabs defaultValue="course">
@@ -130,6 +136,7 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editLabel, setEditLabel] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const { addToast } = useToast();
@@ -175,7 +182,7 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
 
   async function handleUpdate(id: string) {
     if (!editTitle.trim()) return;
-    if (await saveCategory(id, { title: editTitle.trim() })) setEditingId(null);
+    if (await saveCategory(id, { title: editTitle.trim(), page_label: editLabel.trim() || null })) setEditingId(null);
   }
 
   async function handleImageUpload(cat: Category, file: File) {
@@ -211,6 +218,7 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
   function startEditing(cat: Category) {
     setEditingId(cat.id);
     setEditTitle(cat.title);
+    setEditLabel(cat.page_label ?? '');
   }
 
   return (
@@ -253,16 +261,29 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
               />
               {editingId === cat.id ? (
                 <>
-                  <Input
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleUpdate(cat.id);
-                      if (e.key === 'Escape') setEditingId(null);
-                    }}
-                    className="h-8 text-sm flex-1"
-                    autoFocus
-                  />
+                  <div className="flex-1 min-w-0 grid gap-2 sm:grid-cols-2">
+                    {(
+                      [
+                        { label: 'Name', value: editTitle, set: setEditTitle, placeholder: '' },
+                        { label: 'Name on recipe pages (optional)', value: editLabel, set: setEditLabel, placeholder: editTitle || 'Same as the name' },
+                      ] as const
+                    ).map((field, i) => (
+                      <label key={field.label} className="grid gap-1 text-xs text-muted-foreground">
+                        {field.label}
+                        <Input
+                          value={field.value}
+                          placeholder={field.placeholder}
+                          onChange={(e) => field.set(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleUpdate(cat.id);
+                            if (e.key === 'Escape') setEditingId(null);
+                          }}
+                          className="h-8 text-sm"
+                          autoFocus={i === 0}
+                        />
+                      </label>
+                    ))}
+                  </div>
                   <Button variant="ghost" size="sm" onClick={() => handleUpdate(cat.id)}>
                     <Check size={14} className="text-green-600" />
                   </Button>
@@ -275,10 +296,15 @@ function CategoryList({ type, categories, loading, onCreated, onUpdated, onDelet
                   <button
                     type="button"
                     onClick={() => startEditing(cat)}
-                    className="flex-1 min-w-0 truncate text-left text-sm text-foreground hover:underline"
+                    className="group flex-1 min-w-0 text-left text-sm text-foreground"
                     title="Rename"
                   >
-                    {cat.title}
+                    <span className="block truncate group-hover:underline">{cat.title}</span>
+                    {cat.page_label && (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        On recipe pages: &ldquo;{cat.page_label}&rdquo;
+                      </span>
+                    )}
                   </button>
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Switch

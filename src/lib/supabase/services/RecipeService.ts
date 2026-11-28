@@ -35,7 +35,7 @@ export const RECIPE_SUMMARY_SELECT = `
   id, uid, title, subtitle, short_description,
   feature_image_path, feature_image_alt, feature_image_focus_x, feature_image_focus_y,
   prep_time, cook_time, rest_time, total_time, status,
-  recipe_categories(category:categories(id, type, uid, title, deleted_at)),
+  recipe_categories(category:categories(id, type, uid, title, page_label, deleted_at)),
   recipe_ingredients(ingredient_id)
 `;
 
@@ -47,11 +47,11 @@ const RECIPE_FULL_SELECT = `
   serving_suggestions, tips,
   status, published_at,
   created_at, updated_at,
-  recipe_categories(category:categories(id, type, uid, title, deleted_at)),
+  recipe_categories(category:categories(id, type, uid, title, page_label, deleted_at)),
   recipe_accompanying!recipe_accompanying_recipe_id_fkey(accompanying:recipes!recipe_accompanying_accompanying_id_fkey(
     id, uid, title, subtitle, short_description, feature_image_path, feature_image_alt, feature_image_focus_x, feature_image_focus_y,
     prep_time, cook_time, rest_time, total_time, status, deleted_at,
-    recipe_categories(category:categories(id, type, uid, title, deleted_at))
+    recipe_categories(category:categories(id, type, uid, title, page_label, deleted_at))
   ))
 `;
 

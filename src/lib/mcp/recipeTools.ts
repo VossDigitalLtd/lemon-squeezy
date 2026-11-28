@@ -8,6 +8,7 @@ import { recipeToFormData } from '@/lib/recipeFormData';
 import { UNIT_KEYS, type UnitKey } from '@/lib/units';
 import { mcpUser } from './auth';
 import { TRASH_DAYS } from '@/lib/trash';
+import { REST_TYPES, restWhen } from '@/lib/rest';
 import type { Category, CategoryType, Ingredient, IngredientGroup, MethodGroup, Recipe, RecipeFormData, RecipeStatus } from '@/types/recipe';
 
 /**
@@ -23,6 +24,7 @@ export const MCP_INSTRUCTIONS = `Lemon Squeezy is a UK recipe website. These too
 - Always call get_recipe before update_recipe, and send whole lists (ingredient_groups, method_groups, categories, accompanying_recipes) when changing them: a list you send replaces the old one.
 - Write in UK English with metric amounts (g, ml, tsp, tbsp). The site converts to imperial and scales servings itself, including amounts written in method steps (e.g. "Add 500ml of stock"), so write steps for the recipe's own servings.
 - Ingredients: quantity is a number (0.5, not "½"), unit is one of the listed units or null for plain counts ("3 eggs" is quantity 3, unit null, name "eggs"), name is the ingredient ("sage"), note is preparation ("finely chopped"). "8 sage leaves" is quantity 8, unit "leaf", name "sage".
+- Times are in minutes: prep_time, cook_time, and rest_periods for other waiting (marinating, proving or chilling before cooking; resting, setting or cooling after). Each rest says when it happens: "before" or "after" cooking. The site shows them in cooking order and adds them to the total time.
 - Describe each change in update_recipe's summary, in a few words; it's shown in the History.
 - New recipes from create_recipe are drafts. Publish one with set_recipe_status only when asked to; archive takes a recipe off the site without deleting it.
 - delete_recipe moves a recipe to the Trash, where it can be restored in the admin for ${TRASH_DAYS} days; prefer archiving unless the person wants it deleted.
@@ -48,7 +50,17 @@ const categoriesSchema = z
     cuisine: z.array(z.string()).optional(),
     dietary: z.array(z.string()).optional(),
   })
-  .describe('Category titles or uids from list_categories; each type you send replaces that type');
+  .describe('Category titles or uids from list_categories (a page_label works too); each type you send replaces that type');
+const restPeriodsSchema = z
+  .array(
+    z.object({
+      type: z.enum(REST_TYPES).describe('What happens: rest, set, chill, cool, marinate, prove, soak, or other'),
+      label: z.string().optional().describe('Only for type "other", e.g. "Freezing"'),
+      minutes: z.number().int().min(1),
+      when: z.enum(['before', 'after']).describe('Before or after cooking'),
+    })
+  )
+  .describe('Waiting times besides prep and cook, e.g. marinating before cooking or resting after; replaces the current list ([] removes them all)');
 const accompanyingSchema = z
   .array(z.string())
   .describe('Recipes that go with this one, by uid or exact title; replaces the current list');
@@ -60,6 +72,7 @@ const recipeFields = {
   servings: z.number().int().min(1).max(48).optional(),
   prep_time: z.number().int().min(0).optional().describe('Minutes'),
   cook_time: z.number().int().min(0).optional().describe('Minutes'),
+  rest_periods: restPeriodsSchema.optional(),
   calories_per_serving: z.number().int().min(0).nullable().optional(),
   serving_suggestions: z.string().optional(),
   tips: z.string().optional(),
@@ -75,6 +88,7 @@ type RecipeChanges = {
   servings?: number;
   prep_time?: number;
   cook_time?: number;
+  rest_periods?: z.infer<typeof restPeriodsSchema>;
   calories_per_serving?: number | null;
   serving_suggestions?: string;
   tips?: string;
@@ -140,7 +154,7 @@ function forChat(recipe: Recipe, origin: string) {
     servings: recipe.servings,
     prep_time: recipe.prep_time,
     cook_time: recipe.cook_time,
-    rest_periods: recipe.rest_periods,
+    rest_periods: (recipe.rest_periods ?? []).map((r) => ({ ...r, when: restWhen(r) })),
     total_time: recipe.total_time,
     calories_per_serving: recipe.calories_per_serving,
     ingredient_groups: recipe.ingredient_groups.map((g) => ({
@@ -183,7 +197,7 @@ async function resolveCategories(
     const found: string[] = [];
     for (const name of names) {
       const n = name.trim().toLowerCase();
-      const cat = byType[type].find((c) => c.uid === n || c.title.toLowerCase() === n);
+      const cat = byType[type].find((c) => c.uid === n || c.title.toLowerCase() === n || c.page_label?.toLowerCase() === n);
       if (!cat) return { error: `No ${type} category "${name}". Choose from: ${byType[type].map((c) => c.title).join(', ')}` };
       found.push(cat.id);
     }
@@ -241,6 +255,14 @@ export async function applyChanges(
   }
   for (const key of ['servings', 'prep_time', 'cook_time', 'calories_per_serving'] as const) {
     if (changes[key] !== undefined) next[key] = changes[key] ?? null;
+  }
+  if (changes.rest_periods) {
+    next.rest_periods = changes.rest_periods.map((r) => ({
+      type: r.type,
+      ...(r.type === 'other' && r.label?.trim() ? { label: r.label.trim() } : {}),
+      minutes: r.minutes,
+      when: r.when,
+    }));
   }
   if (changes.ingredient_groups) next.ingredient_groups = toIngredientGroups(changes.ingredient_groups, data.ingredient_groups);
   if (changes.method_groups) next.method_groups = toMethodGroups(changes.method_groups);
@@ -311,7 +333,8 @@ export function registerRecipeTools(server: McpServer) {
     'list_categories',
     {
       title: 'List categories',
-      description: 'The course, cuisine and dietary categories recipes can be filed under.',
+      description:
+        'The course, cuisine and dietary categories recipes can be filed under. A page_label is the name shown on recipe pages instead of the title (e.g. Cypriot shows as "From a Cypriot kitchen"); either name can be used.',
       inputSchema: z.object({}),
       annotations: readOnly,
       _meta,
@@ -319,7 +342,7 @@ export function registerRecipeTools(server: McpServer) {
     async () => {
       const result = await CategoryService.getAllGrouped(reader());
       if (!result.success || !result.data) return fail('Could not load the categories');
-      const list = (cats: Category[]) => cats.map((c) => ({ uid: c.uid, title: c.title }));
+      const list = (cats: Category[]) => cats.map((c) => ({ uid: c.uid, title: c.title, ...(c.page_label ? { page_label: c.page_label } : {}) }));
       return text({ course: list(result.data.courses), cuisine: list(result.data.cuisines), dietary: list(result.data.dietaries) });
     }
   );

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { applyChanges, toIngredientGroups } from '@/lib/mcp/recipeTools';
 import type { RecipeFormData } from '@/types/recipe';
+import { categoryLabel } from '@/lib/recipes';
 
 const recipe: RecipeFormData = {
   uid: 'chorizo-soup',
@@ -59,7 +60,35 @@ describe('changes from the connector', () => {
     });
   });
 
+  it('sets rest times before or after cooking, keeping a label only for "other"', async () => {
+    const next = await applyChanges(recipe, {
+      rest_periods: [
+        { type: 'marinate', minutes: 120, when: 'before' },
+        { type: 'rest', label: 'ignored', minutes: 10, when: 'after' },
+        { type: 'other', label: ' Freezing ', minutes: 60, when: 'after' },
+      ],
+    });
+    expect(next).toEqual({
+      ...recipe,
+      rest_periods: [
+        { type: 'marinate', minutes: 120, when: 'before' },
+        { type: 'rest', minutes: 10, when: 'after' },
+        { type: 'other', label: 'Freezing', minutes: 60, when: 'after' },
+      ],
+    });
+    expect(await applyChanges(recipe, { rest_periods: [] })).toEqual({ ...recipe, rest_periods: [] });
+  });
+
   it('refuses to blank the title', async () => {
     expect(await applyChanges(recipe, { title: '   ' })).toEqual({ error: 'A recipe needs a title' });
+  });
+});
+
+describe('category names on recipe pages', () => {
+  it('uses the page label when there is one, otherwise the name', () => {
+    expect(categoryLabel({ title: 'Cypriot', page_label: 'From a Cypriot kitchen' })).toBe('From a Cypriot kitchen');
+    expect(categoryLabel({ title: 'Greek', page_label: null })).toBe('Greek');
+    expect(categoryLabel({ title: 'Greek', page_label: '  ' })).toBe('Greek');
+    expect(categoryLabel({ title: 'Greek' })).toBe('Greek');
   });
 });
